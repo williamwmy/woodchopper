@@ -2,6 +2,9 @@ import Phaser from 'phaser';
 import { ProceduralGeneration } from '../utils/ProceduralGeneration.js';
 import { DayNightCycle } from '../utils/DayNightCycle.js';
 import { SpriteLoader } from '../utils/SpriteLoader.js';
+import { SaveSystem } from '../utils/SaveSystem.js';
+import { VirtualJoystick } from '../utils/VirtualJoystick.js';
+import { AxeUpgrade } from '../objects/AxeUpgrade.js';
 
 export default class GameScene extends Phaser.Scene {
     constructor() {
@@ -24,8 +27,11 @@ export default class GameScene extends Phaser.Scene {
         this.dayNightCycle = new DayNightCycle(this);
         this.enemySpawnRate = 1.0;
         this.nightBonus = false;
-        this.axeUpgrade = { stats: { power: 1 } };
+        this.axeUpgrade = new AxeUpgrade();
         this.spriteLoader = new SpriteLoader(this);
+        this.playerDirection = 'neutral'; // Track player direction
+        this.saveSystem = new SaveSystem();
+        this.virtualJoystick = null;
     }
 
     preload() {
@@ -39,12 +45,26 @@ export default class GameScene extends Phaser.Scene {
         
         this.cameras.main.setBackgroundColor('#87CEEB');
         
+        // Try to load saved game first
+        this.loadSavedGame();
+        
+        // Load resources from registry if they exist
+        const savedResources = this.registry.get('playerResources');
+        if (savedResources) {
+            this.resources = savedResources;
+        } else {
+            // First time - save initial resources to registry
+            this.registry.set('playerResources', this.resources);
+        }
+        
         this.createWorld();
         this.createPlayer();
         this.createTrees();
         this.createEnemies();
+        this.setupCollisions();
         this.createUI();
         this.setupInput();
+        this.virtualJoystick = new VirtualJoystick(this);
         this.dayNightCycle.create();
     }
 
@@ -106,6 +126,32 @@ export default class GameScene extends Phaser.Scene {
         // Add collision with mountains
         this.physics.add.collider(this.player, this.mountains);
     }
+
+    setupCollisions() {
+        // Add collision between player and trees
+        this.physics.add.collider(this.player, this.trees);
+    }
+
+    updatePlayerSprite(direction) {
+        if (direction === this.playerDirection) return;
+        
+        this.playerDirection = direction;
+        let spriteKey = 'player';
+        
+        switch (direction) {
+            case 'left':
+                spriteKey = 'player_left';
+                break;
+            case 'right':
+                spriteKey = 'player_right';
+                break;
+            default:
+                spriteKey = 'player';
+                break;
+        }
+        
+        this.player.setTexture(spriteKey);
+    }
     
     createBaseArea() {
         // Create base buildings
@@ -150,7 +196,7 @@ export default class GameScene extends Phaser.Scene {
             if (zone.x < 200 || zone.x > this.worldWidth - 200 || 
                 zone.y < 200 || zone.y > this.worldHeight - 200) return;
             
-            const treesInZone = this.procedural.generateTreesInZone(zone);
+            const treesInZone = this.procedural.generateTreesInZone(zone, this.baseX, this.baseY);
             
             treesInZone.forEach(treeData => {
                 const texture = this.getTreeTexture(treeData.type);
@@ -217,31 +263,29 @@ export default class GameScene extends Phaser.Scene {
         this.specialText = this.add.text(20, 100, 'Oak: 0 | Maple: 0', { fontSize: '12px', fill: '#FFD700' }).setScrollFactor(0);
         this.specialText2 = this.add.text(20, 115, 'Birch: 0 | Pine: 0', { fontSize: '12px', fill: '#FFD700' }).setScrollFactor(0);
         
-        const menuButton = this.add.rectangle(750, 30, 80, 40, 0x8B4513).setOrigin(0.5, 0.5).setScrollFactor(0);
+        const menuButton = this.add.rectangle(350, 30, 80, 40, 0x8B4513).setOrigin(0.5, 0.5).setScrollFactor(0);
         menuButton.setInteractive();
         menuButton.on('pointerdown', () => this.scene.start('MenuScene'));
         
-        this.add.text(750, 30, 'MENU', { fontSize: '14px', fill: '#ffffff', fontWeight: 'bold' }).setOrigin(0.5).setScrollFactor(0);
+        this.add.text(350, 30, 'MENU', { fontSize: '14px', fill: '#ffffff', fontWeight: 'bold' }).setOrigin(0.5).setScrollFactor(0);
         
-        const chopButton = this.add.rectangle(650, 30, 80, 40, 0x228B22).setOrigin(0.5, 0.5).setScrollFactor(0);
+        const chopButton = this.add.circle(350, 580, 30, 0x228B22).setOrigin(0.5, 0.5).setScrollFactor(0);
+        chopButton.setStrokeStyle(3, 0x1a6b1a);
         chopButton.setInteractive();
         chopButton.on('pointerdown', () => this.chopNearbyTree());
         
-        this.add.text(650, 30, 'CHOP', { fontSize: '14px', fill: '#ffffff', fontWeight: 'bold' }).setOrigin(0.5).setScrollFactor(0);
+        this.add.text(350, 580, 'CHOP', { fontSize: '12px', fill: '#ffffff', fontWeight: 'bold' }).setOrigin(0.5).setScrollFactor(0);
         
-        const attackButton = this.add.rectangle(550, 30, 80, 40, 0xFF4500).setOrigin(0.5, 0.5).setScrollFactor(0);
+        const attackButton = this.add.circle(280, 620, 30, 0xFF4500).setOrigin(0.5, 0.5).setScrollFactor(0);
+        attackButton.setStrokeStyle(3, 0xcc3300);
         attackButton.setInteractive();
         attackButton.on('pointerdown', () => this.attackNearbyEnemy());
         
-        this.add.text(550, 30, 'ATTACK', { fontSize: '14px', fill: '#ffffff', fontWeight: 'bold' }).setOrigin(0.5).setScrollFactor(0);
+        this.add.text(280, 620, 'ATTACK', { fontSize: '12px', fill: '#ffffff', fontWeight: 'bold' }).setOrigin(0.5).setScrollFactor(0);
         
     }
 
     setupInput() {
-        this.input.on('pointerdown', (pointer) => {
-            this.movePlayerTo(pointer.worldX, pointer.worldY);
-        });
-        
         this.cursors = this.input.keyboard.createCursorKeys();
     }
 
@@ -259,10 +303,21 @@ export default class GameScene extends Phaser.Scene {
                 moveSpeed = 150;
             }
             
+            // Determine direction based on target position
+            const deltaX = x - this.player.x;
+            if (Math.abs(deltaX) > 10) { // Only change direction if significant horizontal movement
+                if (deltaX > 0) {
+                    this.updatePlayerSprite('right');
+                } else {
+                    this.updatePlayerSprite('left');
+                }
+            }
+            
             this.physics.moveToObject(this.player, { x, y }, moveSpeed);
             
             this.time.delayedCall(distance / moveSpeed * 1000, () => {
                 this.player.setVelocity(0, 0);
+                this.updatePlayerSprite('neutral');
             });
         }
     }
@@ -428,7 +483,7 @@ export default class GameScene extends Phaser.Scene {
             fontWeight: 'bold'
         }).setOrigin(0.5).setScrollFactor(0);
         
-        const restartButton = this.add.rectangle(400, 400, 200, 60, 0x8B4513)
+        this.add.rectangle(400, 400, 200, 60, 0x8B4513)
             .setInteractive()
             .on('pointerdown', () => this.scene.restart())
             .setScrollFactor(0);
@@ -453,76 +508,102 @@ export default class GameScene extends Phaser.Scene {
         this.baseInterface.setScrollFactor(0);
         
         // Background
-        const bg = this.add.rectangle(400, 300, 600, 400, 0x000000, 0.8);
+        const bg = this.add.rectangle(200, 350, 380, 500, 0x000000, 0.8);
         bg.setScrollFactor(0);
         this.baseInterface.add(bg);
         
         // Title
-        const title = this.add.text(400, 150, 'BASE MANAGEMENT', {
-            fontSize: '32px',
+        const title = this.add.text(200, 120, 'BASE MANAGEMENT', {
+            fontSize: '24px',
             fill: '#FFD700',
             fontWeight: 'bold'
         }).setOrigin(0.5).setScrollFactor(0);
         this.baseInterface.add(title);
         
         // Resources display
-        const resourceText = this.add.text(400, 200, 
+        const resourceText = this.add.text(200, 160, 
             `Wood: ${this.resources.wood} | Coins: ${this.resources.coins}`, {
-            fontSize: '18px',
+            fontSize: '16px',
             fill: '#ffffff'
         }).setOrigin(0.5).setScrollFactor(0);
         this.baseInterface.add(resourceText);
         
         // Sell wood button
-        const sellButton = this.add.rectangle(300, 250, 180, 40, 0x228B22)
+        const sellButton = this.add.rectangle(200, 220, 300, 50, 0x228B22)
             .setInteractive()
             .on('pointerdown', () => this.sellWood())
             .setScrollFactor(0);
         this.baseInterface.add(sellButton);
         
-        const sellText = this.add.text(300, 250, 'SELL WOOD', {
-            fontSize: '14px',
+        const sellText = this.add.text(200, 220, 'SELL WOOD', {
+            fontSize: '16px',
             fill: '#ffffff',
             fontWeight: 'bold'
         }).setOrigin(0.5).setScrollFactor(0);
         this.baseInterface.add(sellText);
         
         // Sleep button
-        const sleepButton = this.add.rectangle(500, 250, 180, 40, 0x800080)
+        const sleepButton = this.add.rectangle(200, 290, 300, 50, 0x800080)
             .setInteractive()
             .on('pointerdown', () => this.sleepAtBase())
             .setScrollFactor(0);
         this.baseInterface.add(sleepButton);
         
-        const sleepText = this.add.text(500, 250, 'SLEEP (Restore Stamina)', {
-            fontSize: '14px',
+        const sleepText = this.add.text(200, 280, 'SLEEP', {
+            fontSize: '16px',
             fill: '#ffffff',
             fontWeight: 'bold'
         }).setOrigin(0.5).setScrollFactor(0);
         this.baseInterface.add(sleepText);
         
+        const sleepSubtext = this.add.text(200, 300, 'Restore Stamina', {
+            fontSize: '12px',
+            fill: '#ffffff'
+        }).setOrigin(0.5).setScrollFactor(0);
+        this.baseInterface.add(sleepSubtext);
+        
         // Upgrade button
-        const upgradeButton = this.add.rectangle(400, 310, 200, 40, 0x4169E1)
+        const upgradeButton = this.add.rectangle(200, 360, 300, 50, 0x4169E1)
             .setInteractive()
             .on('pointerdown', () => this.goToUpgrades())
             .setScrollFactor(0);
         this.baseInterface.add(upgradeButton);
         
-        const upgradeText = this.add.text(400, 310, 'UPGRADES & EQUIPMENT', {
-            fontSize: '14px',
+        const upgradeText = this.add.text(200, 350, 'UPGRADES & EQUIPMENT', {
+            fontSize: '16px',
             fill: '#ffffff',
             fontWeight: 'bold'
         }).setOrigin(0.5).setScrollFactor(0);
         this.baseInterface.add(upgradeText);
         
+        const upgradeSubtext = this.add.text(200, 370, 'Axes • Buildings • Enchantments', {
+            fontSize: '12px',
+            fill: '#ffffff'
+        }).setOrigin(0.5).setScrollFactor(0);
+        this.baseInterface.add(upgradeSubtext);
+        
+        // Save button
+        const saveButton = this.add.rectangle(200, 480, 300, 50, 0x228B22)
+            .setInteractive()
+            .on('pointerdown', () => this.saveGameFromBaseInterface())
+            .setScrollFactor(0);
+        this.baseInterface.add(saveButton);
+        
+        const saveText = this.add.text(200, 480, '💾 SAVE GAME', {
+            fontSize: '16px',
+            fill: '#ffffff',
+            fontWeight: 'bold'
+        }).setOrigin(0.5).setScrollFactor(0);
+        this.baseInterface.add(saveText);
+        
         // Close button
-        const closeButton = this.add.rectangle(400, 370, 100, 40, 0x8B4513)
+        const closeButton = this.add.rectangle(200, 540, 200, 40, 0x8B4513)
             .setInteractive()
             .on('pointerdown', () => this.closeBaseInterface())
             .setScrollFactor(0);
         this.baseInterface.add(closeButton);
         
-        const closeText = this.add.text(400, 370, 'CLOSE', {
+        const closeText = this.add.text(200, 540, 'CLOSE', {
             fontSize: '16px',
             fill: '#ffffff',
             fontWeight: 'bold'
@@ -595,34 +676,81 @@ export default class GameScene extends Phaser.Scene {
         this.timeText.setText(`Time: ${this.dayNightCycle.getTimeString()}`);
         this.specialText.setText(`Oak: ${this.resources.oak_wood} | Maple: ${this.resources.maple_syrup}`);
         this.specialText2.setText(`Birch: ${this.resources.birch_bark} | Pine: ${this.resources.pine_resin}`);
+        
+        // Save resources to registry for other scenes to access
+        this.registry.set('playerResources', this.resources);
     }
 
     update() {
-        const isMovingNow = this.cursors.left.isDown || this.cursors.right.isDown || 
-                           this.cursors.up.isDown || this.cursors.down.isDown;
+        let isMovingNow = false;
+        let moveSpeed = 200;
         
         // Calculate movement speed based on stamina
-        let moveSpeed = 200;
         if (this.stamina < 30) {
             moveSpeed = 100; // Slow when tired
         } else if (this.stamina < 60) {
             moveSpeed = 150; // Medium speed when moderately tired
         }
         
-        if (this.cursors.left.isDown) {
-            this.player.setVelocityX(-moveSpeed);
-        } else if (this.cursors.right.isDown) {
-            this.player.setVelocityX(moveSpeed);
-        } else {
-            this.player.setVelocityX(0);
-        }
+        // Check keyboard input
+        const keyboardMoving = this.cursors.left.isDown || this.cursors.right.isDown || 
+                              this.cursors.up.isDown || this.cursors.down.isDown;
+        
+        // Check virtual joystick input
+        const joystickActive = this.virtualJoystick && this.virtualJoystick.isActive();
+        
+        if (keyboardMoving) {
+            // Handle keyboard movement
+            if (this.cursors.left.isDown) {
+                this.player.setVelocityX(-moveSpeed);
+                this.updatePlayerSprite('left');
+            } else if (this.cursors.right.isDown) {
+                this.player.setVelocityX(moveSpeed);
+                this.updatePlayerSprite('right');
+            } else {
+                this.player.setVelocityX(0);
+            }
 
-        if (this.cursors.up.isDown) {
-            this.player.setVelocityY(-moveSpeed);
-        } else if (this.cursors.down.isDown) {
-            this.player.setVelocityY(moveSpeed);
+            if (this.cursors.up.isDown) {
+                this.player.setVelocityY(-moveSpeed);
+            } else if (this.cursors.down.isDown) {
+                this.player.setVelocityY(moveSpeed);
+            } else {
+                this.player.setVelocityY(0);
+            }
+            
+            // Return to neutral sprite when not moving horizontally
+            if (!this.cursors.left.isDown && !this.cursors.right.isDown) {
+                this.updatePlayerSprite('neutral');
+            }
+            
+            isMovingNow = true;
+        } else if (joystickActive) {
+            // Handle joystick movement
+            const direction = this.virtualJoystick.getDirection();
+            const force = this.virtualJoystick.getForce();
+            
+            const velocityX = direction.x * moveSpeed * force;
+            const velocityY = direction.y * moveSpeed * force;
+            
+            this.player.setVelocity(velocityX, velocityY);
+            
+            // Update sprite based on horizontal movement
+            if (Math.abs(direction.x) > 0.1) {
+                if (direction.x > 0) {
+                    this.updatePlayerSprite('right');
+                } else {
+                    this.updatePlayerSprite('left');
+                }
+            } else {
+                this.updatePlayerSprite('neutral');
+            }
+            
+            isMovingNow = true;
         } else {
-            this.player.setVelocityY(0);
+            // No movement input
+            this.player.setVelocity(0, 0);
+            this.updatePlayerSprite('neutral');
         }
         
         // Handle stamina
@@ -643,5 +771,71 @@ export default class GameScene extends Phaser.Scene {
         
         this.dayNightCycle.update();
         this.updateUI();
+    }
+
+    loadSavedGame() {
+        const loadResult = this.saveSystem.loadGame();
+        if (loadResult.success && loadResult.data) {
+            const saveData = loadResult.data;
+            
+            // Restore resources
+            this.resources = saveData.resources;
+            
+            // Restore game state
+            this.health = saveData.gameState.health;
+            this.maxHealth = saveData.gameState.maxHealth;
+            this.stamina = saveData.gameState.stamina;
+            this.maxStamina = saveData.gameState.maxStamina;
+            
+            // Restore axe upgrade
+            this.axeUpgrade.level = saveData.axeUpgrade.level;
+            this.axeUpgrade.material = saveData.axeUpgrade.material;
+            this.axeUpgrade.enchantments = saveData.axeUpgrade.enchantments;
+            this.axeUpgrade.stats = saveData.axeUpgrade.stats;
+            
+            // Save to registry for other scenes
+            this.registry.set('playerResources', this.resources);
+            this.registry.set('playerStats', saveData.playerStats);
+            this.registry.set('axeUpgrade', this.axeUpgrade);
+            this.registry.set('buildings', saveData.buildings);
+            
+            console.log('Game loaded successfully!');
+        }
+    }
+
+    saveGame() {
+        const baseScene = this.scene.get('BaseScene');
+        const saveResult = this.saveSystem.saveGame(this, baseScene);
+        
+        // Show save feedback
+        const message = this.add.text(400, 200, saveResult.message, {
+            fontSize: '24px',
+            fill: saveResult.success ? '#00FF00' : '#FF0000',
+            fontWeight: 'bold'
+        }).setOrigin(0.5).setScrollFactor(0);
+        
+        if (saveResult.success) {
+            this.add.text(400, 230, `Lagret: ${saveResult.timestamp}`, {
+                fontSize: '16px',
+                fill: '#ffffff',
+                fontWeight: 'bold'
+            }).setOrigin(0.5).setScrollFactor(0);
+        }
+        
+        // Remove message after 3 seconds
+        this.time.delayedCall(3000, () => {
+            message.destroy();
+        });
+        
+        return saveResult;
+    }
+    
+    saveGameFromBaseInterface() {
+        const saveResult = this.saveGame();
+        
+        // Close the base interface after saving
+        this.closeBaseInterface();
+        
+        return saveResult;
     }
 }

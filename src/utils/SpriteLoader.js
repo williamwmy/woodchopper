@@ -5,6 +5,8 @@ export class SpriteLoader {
         this.useCustomSprites = false;
         this.spriteConfig = {
             player: { width: 32, height: 32, color: 0x8B4513 },
+            player_left: { width: 32, height: 32, color: 0x8B4513 },
+            player_right: { width: 32, height: 32, color: 0x8B4513 },
             tree: { width: 16, height: 40, trunk: 0x8B4513, leaves: 0x228B22 },
             sturdy_tree: { width: 18, height: 42, trunk: 0x8B4513, leaves: 0x006400 },
             oak_tree: { width: 20, height: 45, trunk: 0x654321, leaves: 0x228B22 },
@@ -23,7 +25,7 @@ export class SpriteLoader {
     // Load custom sprites from files
     loadCustomSprites() {
         const spritePaths = [
-            'player', 'tree', 'sturdy_tree', 'oak_tree', 'maple_tree', 
+            'player', 'player_left', 'player_right', 'tree', 'sturdy_tree', 'oak_tree', 'maple_tree', 
             'birch_tree', 'pine_tree', 'stump_enemy', 'spirit_enemy', 
             'mountain', 'base_building', 'base_marker', 'ground'
         ];
@@ -58,7 +60,7 @@ export class SpriteLoader {
         
         // Generate fallback sprites for all types
         const spriteTypes = [
-            'player', 'tree', 'sturdy_tree', 'oak_tree', 'maple_tree', 
+            'player', 'player_left', 'player_right', 'tree', 'sturdy_tree', 'oak_tree', 'maple_tree', 
             'birch_tree', 'pine_tree', 'stump_enemy', 'spirit_enemy', 
             'mountain', 'base_building', 'base_marker', 'ground'
         ];
@@ -79,6 +81,37 @@ export class SpriteLoader {
                         const config = this.spriteConfig.player;
                         graphics.fillStyle(config.color);
                         graphics.fillRect(0, 0, config.width, config.height);
+                        // Add simple face (neutral)
+                        graphics.fillStyle(0x000000);
+                        graphics.fillCircle(10, 10, 2);
+                        graphics.fillCircle(22, 10, 2);
+                        graphics.fillRect(14, 18, 4, 2);
+                    });
+                    break;
+                    
+                case 'player_left':
+                    this.generateSprite(graphics, key, () => {
+                        const config = this.spriteConfig.player_left;
+                        graphics.fillStyle(config.color);
+                        graphics.fillRect(0, 0, config.width, config.height);
+                        // Add face looking left
+                        graphics.fillStyle(0x000000);
+                        graphics.fillCircle(8, 10, 2);
+                        graphics.fillCircle(16, 10, 2);
+                        graphics.fillRect(6, 18, 4, 2);
+                    });
+                    break;
+                    
+                case 'player_right':
+                    this.generateSprite(graphics, key, () => {
+                        const config = this.spriteConfig.player_right;
+                        graphics.fillStyle(config.color);
+                        graphics.fillRect(0, 0, config.width, config.height);
+                        // Add face looking right
+                        graphics.fillStyle(0x000000);
+                        graphics.fillCircle(16, 10, 2);
+                        graphics.fillCircle(24, 10, 2);
+                        graphics.fillRect(22, 18, 4, 2);
                     });
                     break;
                     

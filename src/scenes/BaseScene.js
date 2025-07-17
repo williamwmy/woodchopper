@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { AxeUpgrade } from '../objects/AxeUpgrade.js';
 import { BaseBuilding } from '../objects/BaseBuilding.js';
+import { SaveSystem } from '../utils/SaveSystem.js';
 
 export default class BaseScene extends Phaser.Scene {
     constructor() {
@@ -12,16 +13,18 @@ export default class BaseScene extends Phaser.Scene {
             stamina: 1,
             skillPoints: 15
         };
+        // Default resources (will be overridden from registry)
         this.playerResources = {
-            wood: 50,
-            coins: 200,
-            oak_wood: 5,
-            maple_syrup: 3,
-            birch_bark: 2,
-            pine_resin: 4
+            wood: 0,
+            coins: 0,
+            oak_wood: 0,
+            maple_syrup: 0,
+            birch_bark: 0,
+            pine_resin: 0
         };
         this.axeUpgrade = new AxeUpgrade();
         this.baseBuilding = new BaseBuilding(this);
+        this.saveSystem = new SaveSystem();
     }
 
     preload() {
@@ -30,6 +33,36 @@ export default class BaseScene extends Phaser.Scene {
 
     create() {
         this.cameras.main.setBackgroundColor('#98FB98');
+        
+        // Load resources from registry
+        const savedResources = this.registry.get('playerResources');
+        if (savedResources) {
+            this.playerResources = { ...savedResources };
+        }
+        
+        // Load other saved data from registry
+        const savedStats = this.registry.get('playerStats');
+        if (savedStats) {
+            this.playerStats = { ...savedStats };
+        }
+        
+        const savedAxe = this.registry.get('axeUpgrade');
+        if (savedAxe) {
+            // Restore the AxeUpgrade instance with saved data
+            this.axeUpgrade.level = savedAxe.level || this.axeUpgrade.level;
+            this.axeUpgrade.material = savedAxe.material || this.axeUpgrade.material;
+            this.axeUpgrade.enchantments = savedAxe.enchantments || this.axeUpgrade.enchantments;
+            this.axeUpgrade.stats = savedAxe.stats || this.axeUpgrade.stats;
+        }
+        
+        const savedBuildings = this.registry.get('buildings');
+        if (savedBuildings) {
+            // Apply saved building data to baseBuilding
+            Object.keys(savedBuildings).forEach(type => {
+                const building = savedBuildings[type];
+                this.baseBuilding.setBuildingData(type, building);
+            });
+        }
         
         this.createBaseLayout();
         this.createUI();
@@ -63,41 +96,41 @@ export default class BaseScene extends Phaser.Scene {
     }
 
     createBaseLayout() {
-        this.add.text(400, 50, 'YOUR BASE', {
-            fontSize: '36px',
+        this.add.text(200, 40, 'YOUR BASE', {
+            fontSize: '28px',
             fill: '#2d4a2b',
             fontFamily: 'Arial',
             fontWeight: 'bold'
         }).setOrigin(0.5);
 
         const buildings = [
-            { key: 'warehouse', x: 150, name: 'WAREHOUSE', type: 'warehouse' },
-            { key: 'smithy', x: 300, name: 'SMITHY', type: 'smithy' },
-            { key: 'house', x: 450, name: 'LODGE', type: 'lodge' },
-            { key: 'house', x: 600, name: 'WORKSHOP', type: 'workshop' }
+            { key: 'warehouse', x: 100, y: 100, name: 'WAREHOUSE', type: 'warehouse' },
+            { key: 'smithy', x: 300, y: 100, name: 'SMITHY', type: 'smithy' },
+            { key: 'house', x: 100, y: 200, name: 'LODGE', type: 'lodge' },
+            { key: 'house', x: 300, y: 200, name: 'WORKSHOP', type: 'workshop' }
         ];
 
         buildings.forEach(building => {
-            const buildingSprite = this.add.image(building.x, 150, building.key)
+            const buildingSprite = this.add.image(building.x, building.y, building.key)
                 .setInteractive()
                 .on('pointerdown', () => this.showBuildingInfo(building.type));
             
             const buildingInfo = this.baseBuilding.getBuildingInfo(building.type);
             
-            this.add.text(building.x, 190, building.name, { 
+            this.add.text(building.x, building.y + 45, building.name, { 
                 fontSize: '12px', 
                 fill: '#2d4a2b',
                 fontWeight: 'bold'
             }).setOrigin(0.5);
             
-            this.add.text(building.x, 205, `Level ${buildingInfo.level}`, { 
+            this.add.text(building.x, building.y + 60, `Level ${buildingInfo.level}`, { 
                 fontSize: '10px', 
                 fill: '#8B4513'
             }).setOrigin(0.5);
 
             if (building.type === 'workshop' && !buildingInfo.unlocked) {
                 buildingSprite.setTint(0x666666);
-                this.add.text(building.x, 220, 'LOCKED', { 
+                this.add.text(building.x, building.y + 75, 'LOCKED', { 
                     fontSize: '10px', 
                     fill: '#FF0000'
                 }).setOrigin(0.5);
@@ -106,144 +139,99 @@ export default class BaseScene extends Phaser.Scene {
     }
 
     createUI() {
-        this.add.rectangle(10, 240, 780, 350, 0x000000, 0.1);
-        
-        this.add.text(30, 220, 'UPGRADES & EQUIPMENT', {
-            fontSize: '24px',
-            fill: '#2d4a2b',
-            fontFamily: 'Arial',
+        // Resource display
+        this.add.rectangle(200, 310, 380, 80, 0x000000, 0.1).setOrigin(0.5);
+        this.add.text(20, 280, `💰 Coins: ${this.playerResources.coins}`, {
+            fontSize: '18px',
+            fill: '#FFD700',
             fontWeight: 'bold'
         });
 
-        this.add.text(30, 260, `Resources: Wood: ${this.playerResources.wood} | Coins: ${this.playerResources.coins}`, {
-            fontSize: '16px',
-            fill: '#2d4a2b'
-        });
-
-        this.add.text(30, 280, `Special: Oak: ${this.playerResources.oak_wood} | Maple: ${this.playerResources.maple_syrup} | Birch: ${this.playerResources.birch_bark} | Pine: ${this.playerResources.pine_resin}`, {
+        this.add.text(20, 305, `🪵 Wood: ${this.playerResources.wood} | 🌳 Oak: ${this.playerResources.oak_wood}`, {
             fontSize: '14px',
-            fill: '#8B4513'
-        });
-
-        this.add.text(30, 305, 'SKILLS', {
-            fontSize: '18px',
-            fill: '#2d4a2b',
-            fontWeight: 'bold'
-        });
-
-        this.add.text(30, 325, `Skill Points: ${this.playerStats.skillPoints}`, {
-            fontSize: '16px',
             fill: '#2d4a2b'
         });
-
-        const upgradeButtons = [
-            { name: 'Strength', stat: 'strength', cost: this.playerStats.strength * 2, y: 345 },
-            { name: 'Speed', stat: 'speed', cost: this.playerStats.speed * 2, y: 365 },
-            { name: 'Stamina', stat: 'stamina', cost: this.playerStats.stamina * 2, y: 385 }
-        ];
-
-        upgradeButtons.forEach(upgrade => {
-            const button = this.add.rectangle(150, upgrade.y, 100, 20, 0x8B4513)
-                .setInteractive()
-                .on('pointerdown', () => this.upgradeSkill(upgrade.stat));
-
-            this.add.text(150, upgrade.y, `+${upgrade.name}`, {
-                fontSize: '12px',
-                fill: '#ffffff',
-                fontWeight: 'bold'
-            }).setOrigin(0.5);
-
-            this.add.text(270, upgrade.y, `Level ${this.playerStats[upgrade.stat]} (Cost: ${upgrade.cost})`, {
-                fontSize: '12px',
-                fill: '#2d4a2b'
-            }).setOrigin(0, 0.5);
+        
+        this.add.text(20, 325, `🍁 Maple: ${this.playerResources.maple_syrup} | 🌲 Birch: ${this.playerResources.birch_bark}`, {
+            fontSize: '14px',
+            fill: '#2d4a2b'
         });
-
-        this.add.text(450, 305, 'AXE UPGRADES', {
-            fontSize: '18px',
-            fill: '#2d4a2b',
-            fontWeight: 'bold'
-        });
-
-        const axeInfo = this.axeUpgrade.getAxeInfo();
-        this.add.text(450, 325, `Current: ${axeInfo.material} (Level ${axeInfo.level})`, {
+        
+        this.add.text(20, 345, `🌿 Pine: ${this.playerResources.pine_resin}`, {
             fontSize: '14px',
             fill: '#2d4a2b'
         });
 
-        const axeTypes = this.axeUpgrade.getAxeTypes();
-        axeTypes.slice(1, 4).forEach((axe, index) => {
-            const y = 345 + (index * 20);
-            const canUpgrade = this.axeUpgrade.canUpgrade(axe.material, this.playerResources);
-            
-            const button = this.add.rectangle(520, y, 100, 18, canUpgrade ? 0x228B22 : 0x666666)
-                .setInteractive()
-                .on('pointerdown', () => this.upgradeAxe(axe.material, axe.cost));
+        // Main navigation buttons
+        const buttonY = 420;
 
-            this.add.text(520, y, axe.name, {
-                fontSize: '11px',
-                fill: '#ffffff',
-                fontWeight: 'bold'
-            }).setOrigin(0.5);
-
-            this.add.text(640, y, `${axe.cost} coins`, {
-                fontSize: '11px',
-                fill: canUpgrade ? '#2d4a2b' : '#666666'
-            }).setOrigin(0, 0.5);
-        });
-
-        this.add.text(30, 420, 'BUILDINGS', {
-            fontSize: '18px',
-            fill: '#2d4a2b',
-            fontWeight: 'bold'
-        });
-
-        const buildingTypes = ['warehouse', 'smithy', 'lodge', 'workshop'];
-        const descriptions = this.baseBuilding.getBuildingDescriptions();
-        
-        buildingTypes.forEach((type, index) => {
-            const y = 440 + (index * 30);
-            const buildingInfo = this.baseBuilding.getBuildingInfo(type);
-            const desc = descriptions[type];
-            const canUpgrade = this.baseBuilding.canUpgrade(type, this.playerResources);
-            
-            const button = this.add.rectangle(150, y, 120, 25, canUpgrade ? 0x4169E1 : 0x666666)
-                .setInteractive()
-                .on('pointerdown', () => this.upgradeBuilding(type));
-
-            this.add.text(150, y, `Upgrade ${desc.name}`, {
-                fontSize: '11px',
-                fill: '#ffffff',
-                fontWeight: 'bold'
-            }).setOrigin(0.5);
-
-            this.add.text(280, y - 5, `${desc.currentEffect}`, {
-                fontSize: '10px',
-                fill: '#2d4a2b'
-            }).setOrigin(0, 0.5);
-            
-            this.add.text(280, y + 5, `Cost: ${buildingInfo.upgradeCost} coins`, {
-                fontSize: '10px',
-                fill: canUpgrade ? '#2d4a2b' : '#666666'
-            }).setOrigin(0, 0.5);
-        });
-
-        const backButton = this.add.rectangle(700, 560, 80, 30, 0x654321)
+        // Player upgrades button
+        const playerButton = this.add.rectangle(200, buttonY, 350, 60, 0x228B22)
             .setInteractive()
-            .on('pointerdown', () => this.scene.start('MenuScene'));
+            .on('pointerdown', () => this.scene.start('PlayerUpgradeScene'));
 
-        this.add.text(700, 560, 'BACK', {
-            fontSize: '14px',
+        this.add.text(200, buttonY - 10, '📊 PLAYER UPGRADES', {
+            fontSize: '18px',
             fill: '#ffffff',
             fontWeight: 'bold'
         }).setOrigin(0.5);
 
-        const adventureButton = this.add.rectangle(600, 560, 80, 30, 0x228B22)
+        this.add.text(200, buttonY + 10, 'Skills • Stats • Abilities', {
+            fontSize: '12px',
+            fill: '#ffffff'
+        }).setOrigin(0.5);
+
+        // Equipment & buildings button
+        const equipmentButton = this.add.rectangle(200, buttonY + 80, 350, 60, 0x800080)
+            .setInteractive()
+            .on('pointerdown', () => this.scene.start('EquipmentScene'));
+
+        this.add.text(200, buttonY + 70, '⚔️ EQUIPMENT', {
+            fontSize: '18px',
+            fill: '#ffffff',
+            fontWeight: 'bold'
+        }).setOrigin(0.5);
+
+        this.add.text(200, buttonY + 90, 'Axes • Buildings • Enchantments', {
+            fontSize: '12px',
+            fill: '#ffffff'
+        }).setOrigin(0.5);
+
+        // Additional options
+        const optionsY = 580;
+
+        // Save button - make it very prominent
+        const saveButton = this.add.rectangle(200, optionsY, 300, 50, 0x4169E1)
+            .setInteractive()
+            .on('pointerdown', () => this.saveGame());
+
+        this.add.text(200, optionsY, '💾 SAVE GAME', {
+            fontSize: '20px',
+            fill: '#ffffff',
+            fontWeight: 'bold'
+        }).setOrigin(0.5);
+
+        // Bottom navigation
+        const bottomY = 650;
+
+        // Adventure button
+        const adventureButton = this.add.rectangle(120, bottomY, 150, 40, 0x228B22)
             .setInteractive()
             .on('pointerdown', () => this.scene.start('GameScene'));
 
-        this.add.text(600, 560, 'ADVENTURE', {
-            fontSize: '12px',
+        this.add.text(120, bottomY, '🏃 ADVENTURE', {
+            fontSize: '16px',
+            fill: '#ffffff',
+            fontWeight: 'bold'
+        }).setOrigin(0.5);
+
+        // Back to menu button
+        const backButton = this.add.rectangle(280, bottomY, 150, 40, 0x654321)
+            .setInteractive()
+            .on('pointerdown', () => this.scene.start('MenuScene'));
+
+        this.add.text(280, bottomY, '🏠 MENU', {
+            fontSize: '16px',
             fill: '#ffffff',
             fontWeight: 'bold'
         }).setOrigin(0.5);
@@ -254,6 +242,7 @@ export default class BaseScene extends Phaser.Scene {
         if (this.playerStats.skillPoints >= cost) {
             this.playerStats.skillPoints -= cost;
             this.playerStats[stat]++;
+            this.saveResources();
             this.scene.restart();
         }
     }
@@ -262,14 +251,82 @@ export default class BaseScene extends Phaser.Scene {
         if (this.playerResources.coins >= cost) {
             this.playerResources.coins -= cost;
             this.axeUpgrade.upgradeAxe(material);
+            this.saveResources();
+            this.scene.restart();
+        }
+    }
+
+    addEnchantment(enchantmentName, cost) {
+        if (this.playerResources.coins >= cost) {
+            this.playerResources.coins -= cost;
+            this.axeUpgrade.addEnchantment(enchantmentName);
+            this.saveResources();
             this.scene.restart();
         }
     }
 
     upgradeBuilding(buildingType) {
         if (this.baseBuilding.upgradeBuilding(buildingType, this.playerResources)) {
+            this.saveResources();
             this.scene.restart();
         }
+    }
+
+    saveResources() {
+        // Save resources back to registry
+        this.registry.set('playerResources', this.playerResources);
+        this.registry.set('playerStats', this.playerStats);
+        this.registry.set('axeUpgrade', this.axeUpgrade);
+    }
+
+    saveGame() {
+        // Get GameScene to save from
+        const gameScene = this.scene.get('GameScene');
+        if (!gameScene) {
+            // Show error message
+            const errorMessage = this.add.text(200, 350, 'Kan ikke lagre - gå til spillet først!', {
+                fontSize: '16px',
+                fill: '#FF0000',
+                fontWeight: 'bold',
+                wordWrap: { width: 350 }
+            }).setOrigin(0.5);
+            
+            this.time.delayedCall(3000, () => {
+                errorMessage.destroy();
+            });
+            return;
+        }
+
+        // Save all current data to registry first
+        this.saveResources();
+        
+        // Perform save
+        const saveResult = this.saveSystem.saveGame(gameScene, this);
+        
+        // Show save feedback
+        const message = this.add.text(200, 350, saveResult.message, {
+            fontSize: '20px',
+            fill: saveResult.success ? '#00FF00' : '#FF0000',
+            fontWeight: 'bold',
+            wordWrap: { width: 350 }
+        }).setOrigin(0.5);
+        
+        let timeMessage;
+        if (saveResult.success) {
+            timeMessage = this.add.text(200, 380, `Lagret: ${saveResult.timestamp}`, {
+                fontSize: '14px',
+                fill: '#ffffff',
+                fontWeight: 'bold'
+            }).setOrigin(0.5);
+        }
+        
+        // Remove messages after 3 seconds
+        this.time.delayedCall(3000, () => {
+            message.destroy();
+            if (timeMessage) timeMessage.destroy();
+        });
+        
+        return saveResult;
     }
 
     showBuildingInfo(buildingType) {

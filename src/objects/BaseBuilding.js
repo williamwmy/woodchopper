@@ -13,6 +13,12 @@ export class BaseBuilding {
         return this.buildings[buildingType];
     }
 
+    setBuildingData(buildingType, data) {
+        if (this.buildings[buildingType]) {
+            this.buildings[buildingType] = { ...this.buildings[buildingType], ...data };
+        }
+    }
+
     canUpgrade(buildingType, playerResources) {
         const building = this.buildings[buildingType];
         if (!building) return false;

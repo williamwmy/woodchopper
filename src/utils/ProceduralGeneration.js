@@ -35,9 +35,14 @@ export class ProceduralGeneration {
         return zones;
     }
 
-    generateTreesInZone(zone) {
+    generateTreesInZone(zone, baseX, baseY) {
         const trees = [];
         let treeCount;
+        
+        // Calculate distance from zone center to base
+        const zoneX = zone.x + zone.width / 2;
+        const zoneY = zone.y + zone.height / 2;
+        const distanceToBase = Math.sqrt(Math.pow(zoneX - baseX, 2) + Math.pow(zoneY - baseY, 2));
         
         switch (zone.type) {
             case 'forest':
@@ -51,22 +56,79 @@ export class ProceduralGeneration {
                 break;
         }
         
-        for (let i = 0; i < treeCount; i++) {
-            const x = zone.x + this.seededRandom() * zone.width;
-            const y = zone.y + this.seededRandom() * zone.height;
+        // Determine tree type based on distance to base
+        const treeType = this.getTreeTypeByDistance(zone.type, distanceToBase);
+        
+        // Generate clusters of same tree type
+        const clusterCount = Math.max(1, Math.floor(treeCount / 4));
+        const treesPerCluster = Math.floor(treeCount / clusterCount);
+        
+        for (let cluster = 0; cluster < clusterCount; cluster++) {
+            // Pick a cluster center
+            const clusterX = zone.x + this.seededRandom() * zone.width;
+            const clusterY = zone.y + this.seededRandom() * zone.height;
+            const clusterRadius = 50 + this.seededRandom() * 30;
             
-            const treeType = this.getTreeType(zone.type);
+            // Generate trees in this cluster
+            const treesInThisCluster = cluster === clusterCount - 1 ? 
+                treeCount - (cluster * treesPerCluster) : treesPerCluster;
             
-            trees.push({
-                x,
-                y,
-                type: treeType,
-                health: this.getTreeHealth(treeType),
-                resources: this.getTreeResources(treeType)
-            });
+            for (let i = 0; i < treesInThisCluster; i++) {
+                // Generate position within cluster radius
+                const angle = this.seededRandom() * Math.PI * 2;
+                const radius = this.seededRandom() * clusterRadius;
+                const x = clusterX + Math.cos(angle) * radius;
+                const y = clusterY + Math.sin(angle) * radius;
+                
+                // Ensure trees stay within zone boundaries
+                const finalX = Math.max(zone.x + 20, Math.min(zone.x + zone.width - 20, x));
+                const finalY = Math.max(zone.y + 20, Math.min(zone.y + zone.height - 20, y));
+                
+                trees.push({
+                    x: finalX,
+                    y: finalY,
+                    type: treeType,
+                    health: this.getTreeHealth(treeType),
+                    resources: this.getTreeResources(treeType)
+                });
+            }
         }
         
         return trees;
+    }
+
+    getTreeTypeByDistance(zoneType, distanceToBase) {
+        // Define distance thresholds
+        const closeDistance = 400;  // Close to base
+        const mediumDistance = 800; // Medium distance
+        const farDistance = 1200;   // Far from base
+        
+        if (distanceToBase <= closeDistance) {
+            // Close to base - mostly simple trees
+            return this.seededRandom() < 0.9 ? 'normal' : 'sturdy';
+        } else if (distanceToBase <= mediumDistance) {
+            // Medium distance - mixed trees
+            if (zoneType === 'rare') {
+                return this.seededRandom() < 0.6 ? 'birch' : 'pine';
+            } else {
+                return this.seededRandom() < 0.6 ? 'sturdy' : 'normal';
+            }
+        } else if (distanceToBase <= farDistance) {
+            // Far distance - harder trees
+            if (zoneType === 'rare') {
+                return this.seededRandom() < 0.7 ? 'oak' : 'maple';
+            } else {
+                return this.seededRandom() < 0.7 ? 'sturdy' : 'normal';
+            }
+        } else {
+            // Very far - hardest trees
+            if (zoneType === 'rare') {
+                const hardTrees = ['oak', 'maple'];
+                return hardTrees[Math.floor(this.seededRandom() * hardTrees.length)];
+            } else {
+                return 'sturdy';
+            }
+        }
     }
 
     getTreeType(zoneType) {
