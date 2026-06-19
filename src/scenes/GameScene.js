@@ -327,32 +327,35 @@ export default class GameScene extends Phaser.Scene {
 
     // ---------------------------------------------------------------- controls
     createControls() {
-        const bx = W - 62;
-        const swingY = H - 64, feedY = H - 156, shopY = H - 238;
+        // Big swing button, lifted up and in from the corner for the thumb.
+        const swingX = W - 78, swingY = H - 130;
+        const feedX = W - 58, feedY = H - 235;
+        const shopX = W - 58, shopY = H - 315;
+        this.swingHeld = false;
 
-        // Swing button
-        this.swingBtn = this.add.circle(bx, swingY, 44, 0xc1440e, 0.9)
+        // Swing button — hold to auto-swing (no repeated tapping)
+        this.swingBtn = this.add.circle(swingX, swingY, 56, 0xc1440e, 0.92)
             .setStrokeStyle(4, 0xffd166).setScrollFactor(0).setDepth(3000)
             .setInteractive({ useHandCursor: true });
-        this.add.text(bx, swingY, '🪓', { fontSize: '34px' }).setOrigin(0.5).setDepth(3001);
-        this.swingBtn.on('pointerdown', () => { this.swingBtn.setScale(0.9); this.swing(); });
-        this.swingBtn.on('pointerup', () => this.swingBtn.setScale(1));
-        this.swingBtn.on('pointerout', () => this.swingBtn.setScale(1));
+        this.add.text(swingX, swingY, '🪓', { fontSize: '42px' }).setOrigin(0.5).setDepth(3001);
+        this.swingBtn.on('pointerdown', () => { this.swingBtn.setScale(0.92); this.swingHeld = true; this.swing(); });
+        this.swingBtn.on('pointerup', () => { this.swingBtn.setScale(1); this.swingHeld = false; });
+        this.swingBtn.on('pointerout', () => { this.swingBtn.setScale(1); this.swingHeld = false; });
 
         // Feed button
-        this.feedBtn = this.add.circle(bx, feedY, 34, 0x2a6b3a, 0.9)
+        this.feedBtn = this.add.circle(feedX, feedY, 34, 0x2a6b3a, 0.9)
             .setStrokeStyle(3, 0xffd166).setScrollFactor(0).setDepth(3000)
             .setInteractive({ useHandCursor: true });
-        this.add.text(bx, feedY, '🔥', { fontSize: '24px' }).setOrigin(0.5).setDepth(3001);
+        this.add.text(feedX, feedY, '🔥', { fontSize: '24px' }).setOrigin(0.5).setDepth(3001);
         this.feedBtn.on('pointerdown', () => { this.feedBtn.setScale(0.9); this.feedFire(); });
         this.feedBtn.on('pointerup', () => this.feedBtn.setScale(1));
         this.feedBtn.on('pointerout', () => this.feedBtn.setScale(1));
 
         // Shop button (day only)
-        this.shopBtn = this.add.circle(bx, shopY, 30, 0x4a6b3a, 0.9)
+        this.shopBtn = this.add.circle(shopX, shopY, 30, 0x4a6b3a, 0.9)
             .setStrokeStyle(3, 0xffd166).setScrollFactor(0).setDepth(3000)
             .setInteractive({ useHandCursor: true });
-        this.shopBtnIcon = this.add.text(bx, shopY, '🛒', { fontSize: '22px' }).setOrigin(0.5).setDepth(3001);
+        this.shopBtnIcon = this.add.text(shopX, shopY, '🛒', { fontSize: '22px' }).setOrigin(0.5).setDepth(3001);
         this.shopBtn.on('pointerdown', () => { this.shopBtn.setScale(0.9); this.openShop(); });
         this.shopBtn.on('pointerup', () => this.shopBtn.setScale(1));
         this.shopBtn.on('pointerout', () => this.shopBtn.setScale(1));
@@ -365,7 +368,7 @@ export default class GameScene extends Phaser.Scene {
 
     onButton(px, py) {
         const near = (b, r) => Phaser.Math.Distance.Between(px, py, b.x, b.y) < r;
-        return near(this.swingBtn, 54) || near(this.feedBtn, 44) ||
+        return near(this.swingBtn, 64) || near(this.feedBtn, 44) ||
                (this.shopBtn.visible && near(this.shopBtn, 40)) ||
                Phaser.Math.Distance.Between(px, py, FIRE.x, FIRE.y) < 40;
     }
@@ -783,6 +786,8 @@ export default class GameScene extends Phaser.Scene {
         }
 
         this.handleMovement(dt);
+        // hold swing button (or space) to keep swinging automatically
+        if (this.swingHeld || this.keys.SPACE.isDown) this.swing();
         this.updateEnemies(dt, time);
         this.updateTowers(time);
 
