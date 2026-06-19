@@ -45,7 +45,7 @@ export default class GameScene extends Phaser.Scene {
         this.axeDmg = 6;
         this.moveSpeed = 150;
         this.swingCd = 0;
-        this.swingDelay = 280;
+        this.swingDelay = 460;
         this.swingRange = 56;
         this.treeBonus = 0;       // extra wood per felled tree
         this.killWood = 2;        // wood per killed enemy
@@ -525,6 +525,7 @@ export default class GameScene extends Phaser.Scene {
 
     offerUpgrades(headline) {
         this.menuOpen = true;
+        this.swingHeld = false;   // stop auto-swinging while choosing
         // pick 3 distinct random upgrades
         const pool = Phaser.Utils.Array.Shuffle(this.upgradePool().slice());
         const picks = pool.slice(0, 3);
@@ -535,14 +536,16 @@ export default class GameScene extends Phaser.Scene {
             fontSize: '24px', fontFamily: 'Arial', fontStyle: 'bold',
             color: '#ffd166', align: 'center'
         }).setOrigin(0.5));
-        c.add(this.add.text(W / 2, 150, 'Velg én forsterkning', {
+        const hint = this.add.text(W / 2, 150, 'Gjør deg klar…', {
             fontSize: '15px', fontFamily: 'Arial', color: '#cfe3d4'
-        }).setOrigin(0.5));
+        }).setOrigin(0.5);
+        c.add(hint);
 
+        const cards = [];
         picks.forEach((it, i) => {
             const y = 235 + i * 125;
             const card = this.add.rectangle(W / 2, y, 320, 108, 0x1d2e18)
-                .setStrokeStyle(3, 0x4a6b3a).setInteractive({ useHandCursor: true });
+                .setStrokeStyle(3, 0x33402c).setAlpha(0.5);
             c.add(card);
             c.add(this.add.text(W / 2, y - 28, it.icon, { fontSize: '38px' }).setOrigin(0.5));
             c.add(this.add.text(W / 2, y + 14, it.name, {
@@ -551,17 +554,28 @@ export default class GameScene extends Phaser.Scene {
             c.add(this.add.text(W / 2, y + 38, it.desc, {
                 fontSize: '13px', fontFamily: 'Arial', color: '#bcd0c0'
             }).setOrigin(0.5));
-            card.on('pointerover', () => card.setStrokeStyle(3, 0xffd166));
-            card.on('pointerout', () => card.setStrokeStyle(3, 0x4a6b3a));
-            card.on('pointerup', () => {
-                it.apply();
-                this.upgLevels[it.key] = (this.upgLevels[it.key] || 0) + 1;
-                this.sfx.upgrade();
-                this.refreshPowerVisuals(it.key);
-                this.floatText(this.player.x, this.player.y - 30, it.name, '#ffd166');
-                c.destroy();
-                this.menuOpen = false;
-                this.updateHUD();
+            cards.push({ card, it });
+        });
+
+        // delay before cards are tappable, so a lingering touch (from holding
+        // the swing button) can't accidentally pick one
+        this.time.delayedCall(550, () => {
+            if (!c.active) return;
+            hint.setText('Velg én forsterkning');
+            cards.forEach(({ card, it }) => {
+                card.setAlpha(1).setStrokeStyle(3, 0x4a6b3a).setInteractive({ useHandCursor: true });
+                card.on('pointerover', () => card.setStrokeStyle(3, 0xffd166));
+                card.on('pointerout', () => card.setStrokeStyle(3, 0x4a6b3a));
+                card.on('pointerup', () => {
+                    it.apply();
+                    this.upgLevels[it.key] = (this.upgLevels[it.key] || 0) + 1;
+                    this.sfx.upgrade();
+                    this.refreshPowerVisuals(it.key);
+                    this.floatText(this.player.x, this.player.y - 30, it.name, '#ffd166');
+                    c.destroy();
+                    this.menuOpen = false;
+                    this.updateHUD();
+                });
             });
         });
 
