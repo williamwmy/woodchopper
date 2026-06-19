@@ -1,14 +1,15 @@
 import Phaser from 'phaser';
 import { SoundFX } from '../utils/SoundFX.js';
 
-const W = 400;
-const H = 700;
-const FIRE = { x: W / 2, y: 300 };
+// W/H/FIRE/PLAY_BOTTOM are recomputed from the real canvas size in create()
+let W = 400;
+let H = 700;
+const FIRE = { x: 200, y: 300 };
 
 // Tuning knobs
 const DAY_SECONDS = 10;
 const PLAY_TOP = 120;      // play area starts below HUD
-const PLAY_BOTTOM = 610;   // ...and ends above controls
+let PLAY_BOTTOM = 610;     // ...and ends above controls (set in create)
 const FEED_COST = 5;
 const FEED_FUEL = 18;
 
@@ -18,6 +19,14 @@ export default class GameScene extends Phaser.Scene {
     }
 
     create() {
+        // adapt layout to the actual canvas size
+        W = this.scale.width;
+        H = this.scale.height;
+        FIRE.x = Math.round(W / 2);
+        FIRE.y = Math.round(H * 0.40);
+        PLAY_BOTTOM = H - 96;
+        this.input.addPointer(2);   // allow move + tap simultaneously
+
         this.makeTextures();
         this.sfx = new SoundFX();
 
@@ -191,12 +200,19 @@ export default class GameScene extends Phaser.Scene {
     }
 
     treeSpots() {
-        return [
-            { x: 60, y: 170 }, { x: 150, y: 150 }, { x: 250, y: 155 }, { x: 345, y: 180 },
-            { x: 45, y: 300 }, { x: 355, y: 300 },
-            { x: 70, y: 440 }, { x: 165, y: 470 }, { x: 260, y: 465 }, { x: 350, y: 430 },
-            { x: 120, y: 560 }, { x: 290, y: 560 }
+        // scattered around the play area, mapped to the real canvas size and
+        // kept clear of the campfire
+        const top = PLAY_TOP + 30, bot = PLAY_BOTTOM - 10;
+        const cand = [
+            [0.14, 0.05], [0.40, 0.0], [0.62, 0.01], [0.86, 0.06],
+            [0.07, 0.33], [0.93, 0.31],
+            [0.09, 0.62], [0.92, 0.60],
+            [0.16, 0.95], [0.42, 1.0], [0.62, 0.99], [0.85, 0.94],
+            [0.30, 0.5], [0.72, 0.5]
         ];
+        return cand
+            .map(([fx, fy]) => ({ x: Math.round(20 + fx * (W - 40)), y: Math.round(top + fy * (bot - top)) }))
+            .filter(p => Phaser.Math.Distance.Between(p.x, p.y, FIRE.x, FIRE.y) > 95);
     }
 
     createTrees() {
@@ -262,12 +278,19 @@ export default class GameScene extends Phaser.Scene {
             const a = (i / 12) * Math.PI * 2;
             fence.push({ x: FIRE.x + Math.cos(a) * 70, y: FIRE.y + Math.sin(a) * 70, taken: false });
         }
-        // Towers on diagonals, a bit further out
+        // Towers on diagonals, a bit further out (relative to the fire)
         const taarn = [
-            { x: 119, y: 219 }, { x: 281, y: 219 }, { x: 119, y: 381 }, { x: 281, y: 381 }
+            { x: FIRE.x - 81, y: FIRE.y - 81 }, { x: FIRE.x + 81, y: FIRE.y - 81 },
+            { x: FIRE.x - 81, y: FIRE.y + 81 }, { x: FIRE.x + 81, y: FIRE.y + 81 }
         ].map(p => ({ ...p, taken: false }));
-        const hus = [{ x: 56, y: 300 }, { x: 344, y: 300 }].map(p => ({ ...p, taken: false }));
-        const sagbruk = [{ x: 200, y: 150 }, { x: 200, y: 458 }].map(p => ({ ...p, taken: false }));
+        const hus = [
+            { x: Math.max(44, FIRE.x - 144), y: FIRE.y },
+            { x: Math.min(W - 44, FIRE.x + 144), y: FIRE.y }
+        ].map(p => ({ ...p, taken: false }));
+        const sagbruk = [
+            { x: FIRE.x, y: Math.max(PLAY_TOP + 30, FIRE.y - 150) },
+            { x: FIRE.x, y: Math.min(PLAY_BOTTOM - 20, FIRE.y + 150) }
+        ].map(p => ({ ...p, taken: false }));
         this.slots = { gjerde: fence, taarn, hus, sagbruk };
     }
 
@@ -304,29 +327,32 @@ export default class GameScene extends Phaser.Scene {
 
     // ---------------------------------------------------------------- controls
     createControls() {
+        const bx = W - 62;
+        const swingY = H - 64, feedY = H - 156, shopY = H - 238;
+
         // Swing button
-        this.swingBtn = this.add.circle(338, 642, 44, 0xc1440e, 0.9)
+        this.swingBtn = this.add.circle(bx, swingY, 44, 0xc1440e, 0.9)
             .setStrokeStyle(4, 0xffd166).setScrollFactor(0).setDepth(3000)
             .setInteractive({ useHandCursor: true });
-        this.add.text(338, 642, '🪓', { fontSize: '34px' }).setOrigin(0.5).setDepth(3001);
+        this.add.text(bx, swingY, '🪓', { fontSize: '34px' }).setOrigin(0.5).setDepth(3001);
         this.swingBtn.on('pointerdown', () => { this.swingBtn.setScale(0.9); this.swing(); });
         this.swingBtn.on('pointerup', () => this.swingBtn.setScale(1));
         this.swingBtn.on('pointerout', () => this.swingBtn.setScale(1));
 
         // Feed button
-        this.feedBtn = this.add.circle(338, 542, 34, 0x2a6b3a, 0.9)
+        this.feedBtn = this.add.circle(bx, feedY, 34, 0x2a6b3a, 0.9)
             .setStrokeStyle(3, 0xffd166).setScrollFactor(0).setDepth(3000)
             .setInteractive({ useHandCursor: true });
-        this.add.text(338, 542, '🔥', { fontSize: '24px' }).setOrigin(0.5).setDepth(3001);
+        this.add.text(bx, feedY, '🔥', { fontSize: '24px' }).setOrigin(0.5).setDepth(3001);
         this.feedBtn.on('pointerdown', () => { this.feedBtn.setScale(0.9); this.feedFire(); });
         this.feedBtn.on('pointerup', () => this.feedBtn.setScale(1));
         this.feedBtn.on('pointerout', () => this.feedBtn.setScale(1));
 
         // Shop button (day only)
-        this.shopBtn = this.add.circle(338, 452, 30, 0x4a6b3a, 0.9)
+        this.shopBtn = this.add.circle(bx, shopY, 30, 0x4a6b3a, 0.9)
             .setStrokeStyle(3, 0xffd166).setScrollFactor(0).setDepth(3000)
             .setInteractive({ useHandCursor: true });
-        this.shopBtnIcon = this.add.text(338, 452, '🛒', { fontSize: '22px' }).setOrigin(0.5).setDepth(3001);
+        this.shopBtnIcon = this.add.text(bx, shopY, '🛒', { fontSize: '22px' }).setOrigin(0.5).setDepth(3001);
         this.shopBtn.on('pointerdown', () => { this.shopBtn.setScale(0.9); this.openShop(); });
         this.shopBtn.on('pointerup', () => this.shopBtn.setScale(1));
         this.shopBtn.on('pointerout', () => this.shopBtn.setScale(1));
@@ -763,6 +789,19 @@ export default class GameScene extends Phaser.Scene {
         // house passive healing
         if (this.houseRegen > 0 && this.hp < this.maxHp) {
             this.hp = Math.min(this.maxHp, this.hp + this.houseRegen * dt);
+        }
+
+        // standing in the fire burns you — no safe camping spot
+        if (this.fuel > 0 && Phaser.Math.Distance.Between(this.player.x, this.player.y, FIRE.x, FIRE.y) < 30
+            && time > (this.burnCd || 0)) {
+            this.burnCd = time + 350;
+            this.hp = Math.max(0, this.hp - 6);
+            this.burst(this.player.x, this.player.y - 8, 'ember', 4);
+            this.player.setTintFill(0xff7a2b);
+            this.time.delayedCall(120, () => { if (this.player.active) this.player.clearTint(); });
+            this.floatText(this.player.x, this.player.y - 28, '🔥', '#ff7a2b');
+            if (this.hp <= 0) { this.gameOver('Du brant opp i bålet'); return; }
+            this.updateHUD();
         }
 
         // fuel drain at night

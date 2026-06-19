@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 
-const W = 400;
-const H = 700;
+let W = 400;
+let H = 700;
 
 export default class MenuScene extends Phaser.Scene {
     constructor() {
@@ -9,13 +9,16 @@ export default class MenuScene extends Phaser.Scene {
     }
 
     create() {
+        W = this.scale.width;
+        H = this.scale.height;
+
         // Night-forest gradient backdrop
         const g = this.add.graphics();
         g.fillGradientStyle(0x0b1430, 0x0b1430, 0x16331f, 0x16331f, 1);
         g.fillRect(0, 0, W, H);
 
         // Distant tree silhouettes
-        for (let i = 0; i < 9; i++) {
+        for (let i = 0; i < Math.ceil(W / 45); i++) {
             const x = 20 + i * 45;
             const hgt = 60 + (i % 3) * 30;
             g.fillStyle(0x0a1f12, 1);
@@ -67,7 +70,7 @@ export default class MenuScene extends Phaser.Scene {
             this.scene.start('GameScene');
         });
 
-        this.add.text(W / 2, 670, 'WASD: gå  •  Mellomrom: sving  •  F: mat bål  •  B: bygg', {
+        this.add.text(W / 2, H - 28, 'WASD: gå  •  Mellomrom: sving  •  F: mat bål  •  B: bygg', {
             fontSize: '11px', fontFamily: 'Arial', color: '#8aa090'
         }).setOrigin(0.5);
     }

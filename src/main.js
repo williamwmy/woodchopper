@@ -2,12 +2,20 @@ import Phaser from 'phaser';
 import MenuScene from './scenes/MenuScene.js';
 import GameScene from './scenes/GameScene.js';
 
+// Size the canvas to the device's aspect ratio so it fills the screen
+// (no letterbox bars). Width stays 400; height follows the screen, clamped
+// to a sensible portrait range.
+const aspect = Phaser.Math.Clamp(window.innerHeight / window.innerWidth, 1.4, 2.2);
+const GAME_WIDTH = 400;
+const GAME_HEIGHT = Math.round(GAME_WIDTH * aspect);
+
 const config = {
     type: Phaser.WEBGL,
-    width: 400,
-    height: 700,
+    width: GAME_WIDTH,
+    height: GAME_HEIGHT,
     canvas: document.getElementById('game-canvas'),
     backgroundColor: '#1d2b1f',
+    input: { activePointers: 3 },
     scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
