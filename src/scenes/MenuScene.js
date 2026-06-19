@@ -1,142 +1,86 @@
 import Phaser from 'phaser';
-import { SaveSystem } from '../utils/SaveSystem.js';
+
+const W = 400;
+const H = 700;
 
 export default class MenuScene extends Phaser.Scene {
     constructor() {
         super({ key: 'MenuScene' });
-        this.saveSystem = new SaveSystem();
-    }
-
-    preload() {
-        this.load.image('menuBg', 'data:image/svg+xml;base64,' + btoa(`
-            <svg width="400" height="700" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                    <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" style="stop-color:#87CEEB;stop-opacity:1" />
-                        <stop offset="100%" style="stop-color:#98FB98;stop-opacity:1" />
-                    </linearGradient>
-                </defs>
-                <rect width="400" height="700" fill="url(#skyGradient)"/>
-                <circle cx="100" cy="100" r="30" fill="#FFD700"/>
-                <rect x="0" y="600" width="400" height="100" fill="#228B22"/>
-                <polygon points="50,550 100,450 150,550" fill="#006400"/>
-                <polygon points="150,500 200,400 250,500" fill="#006400"/>
-                <polygon points="250,580 300,480 350,580" fill="#006400"/>
-            </svg>
-        `));
     }
 
     create() {
-        this.add.image(200, 350, 'menuBg');
+        // Night-forest gradient backdrop
+        const g = this.add.graphics();
+        g.fillGradientStyle(0x0b1430, 0x0b1430, 0x16331f, 0x16331f, 1);
+        g.fillRect(0, 0, W, H);
 
-        this.add.text(200, 120, 'WOODCHOPPER', {
-            fontSize: '36px',
-            fill: '#2d4a2b',
-            fontFamily: 'Arial',
-            fontWeight: 'bold'
+        // Distant tree silhouettes
+        for (let i = 0; i < 9; i++) {
+            const x = 20 + i * 45;
+            const hgt = 60 + (i % 3) * 30;
+            g.fillStyle(0x0a1f12, 1);
+            g.fillTriangle(x, H - 90, x + 22, H - 90 - hgt, x + 44, H - 90);
+        }
+        g.fillStyle(0x0a1f12, 1);
+        g.fillRect(0, H - 90, W, 90);
+
+        // Campfire glow
+        const glow = this.add.circle(W / 2, 250, 90, 0xff8c32, 0.18);
+        this.tweens.add({ targets: glow, scale: 1.15, alpha: 0.28, duration: 1200, yoyo: true, repeat: -1 });
+        this.add.circle(W / 2, 250, 14, 0xffd166);
+        this.add.text(W / 2, 250, '🔥', { fontSize: '34px' }).setOrigin(0.5);
+
+        this.add.text(W / 2, 110, 'EMBERWOOD', {
+            fontSize: '44px', fontFamily: 'Georgia, serif', fontStyle: 'bold',
+            color: '#ffd166'
         }).setOrigin(0.5);
 
-        this.add.text(200, 160, 'Cozy Forest Adventure', {
-            fontSize: '20px',
-            fill: '#4a6741',
-            fontFamily: 'Arial'
+        this.add.text(W / 2, 150, 'Hold bålet brennende til daggry', {
+            fontSize: '15px', fontFamily: 'Arial', color: '#cfe3d4'
         }).setOrigin(0.5);
 
-        const startButton = this.add.rectangle(200, 250, 300, 60, 0x8B4513)
-            .setInteractive()
-            .on('pointerdown', () => this.startGame());
+        // How to play
+        const lines = [
+            '☀  DAG — hugg trær for ved',
+            '🌙  NATT — fiender kommer for bålet',
+            '🪵  Ved er brensel, valuta OG byggemateriale',
+            '🔥  Mat bålet — slukner det, dør du',
+            '🪓  Sving øksa for å hugge & slåss',
+            '🛒  Bygg gjerder, tårn, hus & sagbruk'
+        ];
+        this.add.text(W / 2, 330, lines.join('\n'), {
+            fontSize: '15px', fontFamily: 'Arial', color: '#e8efe9',
+            align: 'left', lineSpacing: 10
+        }).setOrigin(0.5, 0);
 
-        this.add.text(200, 250, 'START ADVENTURE', {
-            fontSize: '20px',
-            fill: '#ffffff',
-            fontFamily: 'Arial',
-            fontWeight: 'bold'
-        }).setOrigin(0.5);
-
-        const baseButton = this.add.rectangle(200, 330, 300, 60, 0x654321)
-            .setInteractive()
-            .on('pointerdown', () => this.goToBase());
-
-        this.add.text(200, 330, 'VISIT BASE', {
-            fontSize: '20px',
-            fill: '#ffffff',
-            fontFamily: 'Arial',
-            fontWeight: 'bold'
-        }).setOrigin(0.5);
-
-        // Load game button (only show if save exists)
-        if (this.saveSystem.hasSaveData()) {
-            const loadButton = this.add.rectangle(200, 410, 300, 60, 0x4169E1)
-                .setInteractive()
-                .on('pointerdown', () => this.loadGame());
-
-            this.add.text(200, 410, '📂 LOAD GAME', {
-                fontSize: '20px',
-                fill: '#ffffff',
-                fontFamily: 'Arial',
-                fontWeight: 'bold'
+        // High score
+        const hi = Number(localStorage.getItem('emberwood_highscore') || 0);
+        if (hi > 0) {
+            this.add.text(W / 2, 470, `Beste: ${hi} poeng`, {
+                fontSize: '14px', fontFamily: 'Arial', color: '#ffd166'
             }).setOrigin(0.5);
-
-            // Show save info
-            const saveInfo = this.saveSystem.getSaveInfo();
-            if (saveInfo) {
-                this.add.text(200, 440, `Saved: ${saveInfo.timestamp}`, {
-                    fontSize: '12px',
-                    fill: '#4a6741',
-                    fontFamily: 'Arial'
-                }).setOrigin(0.5);
-            }
         }
 
-        this.add.text(200, 520, 'Chop trees • Collect resources • Upgrade your base', {
-            fontSize: '14px',
-            fill: '#4a6741',
-            fontFamily: 'Arial',
-            wordWrap: { width: 350 }
-        }).setOrigin(0.5);
-
-        // Add discrete version number in bottom right corner
-        this.add.text(380, 680, 'v1.1.0', {
-            fontSize: '12px',
-            fill: '#4a6741',
-            fontFamily: 'Arial',
-            alpha: 0.7
-        }).setOrigin(1, 1);
-    }
-
-    startGame() {
-        this.scene.start('GameScene');
-    }
-
-    goToBase() {
-        this.scene.start('BaseScene');
-    }
-
-    loadGame() {
-        // Show loading message
-        const loadingText = this.add.text(200, 350, 'Loading game...', {
-            fontSize: '24px',
-            fill: '#4169E1',
-            fontFamily: 'Arial',
-            fontWeight: 'bold'
-        }).setOrigin(0.5);
-
-        // Load game after a short delay for visual feedback
-        this.time.delayedCall(500, () => {
-            const loadResult = this.saveSystem.loadGame();
-            
-            if (loadResult.success) {
-                // Start the game scene directly
-                this.scene.start('GameScene');
-            } else {
-                // Show error message
-                loadingText.setText(loadResult.message);
-                loadingText.setFill('#FF0000');
-                
-                this.time.delayedCall(3000, () => {
-                    loadingText.destroy();
-                });
-            }
+        this.makeButton(W / 2, 560, 'START', 0xc1440e, () => {
+            this.scene.start('GameScene');
         });
+
+        this.add.text(W / 2, 670, 'WASD: gå  •  Mellomrom: sving  •  F: mat bål  •  B: bygg', {
+            fontSize: '11px', fontFamily: 'Arial', color: '#8aa090'
+        }).setOrigin(0.5);
+    }
+
+    makeButton(x, y, label, color, onClick) {
+        const w = 220, h = 64;
+        const btn = this.add.rectangle(x, y, w, h, color).setStrokeStyle(3, 0xffd166);
+        btn.setInteractive({ useHandCursor: true });
+        const txt = this.add.text(x, y, label, {
+            fontSize: '26px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+        }).setOrigin(0.5);
+        btn.on('pointerover', () => btn.setScale(1.05));
+        btn.on('pointerout', () => btn.setScale(1));
+        btn.on('pointerdown', () => { btn.setScale(0.96); });
+        btn.on('pointerup', onClick);
+        return { btn, txt };
     }
 }
