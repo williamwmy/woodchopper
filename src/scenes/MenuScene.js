@@ -48,20 +48,22 @@ export default class MenuScene extends Phaser.Scene {
             '🪓  Sving øksa for å hugge & slåss',
             '🛒  Bygg gjerder, tårn, hus & sagbruk'
         ];
-        this.add.text(W / 2, 330, lines.join('\n'), {
-            fontSize: '15px', fontFamily: 'Arial', color: '#e8efe9',
-            align: 'left', lineSpacing: 10
+        const info = this.add.text(W / 2, 308, lines.join('\n'), {
+            fontSize: '14px', fontFamily: 'Arial', color: '#e8efe9',
+            align: 'left', lineSpacing: 8
         }).setOrigin(0.5, 0);
 
-        // High score
+        // High score — placed safely below the instruction block
+        let y = info.y + info.height + 24;
         const hi = Number(localStorage.getItem('emberwood_highscore') || 0);
         if (hi > 0) {
-            this.add.text(W / 2, 470, `Beste: ${hi} poeng`, {
+            this.add.text(W / 2, y, `Beste: ${hi} poeng`, {
                 fontSize: '14px', fontFamily: 'Arial', color: '#ffd166'
             }).setOrigin(0.5);
+            y += 34;
         }
 
-        this.makeButton(W / 2, 560, 'START', 0xc1440e, () => {
+        this.makeButton(W / 2, Math.max(y + 18, 560), 'START', 0xc1440e, () => {
             this.scene.start('GameScene');
         });
 

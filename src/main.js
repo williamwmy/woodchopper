@@ -18,4 +18,12 @@ const config = {
 
 const game = new Phaser.Game(config);
 
+// Register the PWA service worker in production builds only
+// (in dev it would interfere with Vite's hot module reload).
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+}
+
 export default game;

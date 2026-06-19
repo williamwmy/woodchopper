@@ -893,11 +893,11 @@ export default class GameScene extends Phaser.Scene {
         if (remain !== undefined) {
             const day = this.phase === 'day';
             if (day) {
-                this.phaseText.setText(`☀ DAG ${this.wave}  ·  natt om ${remain}s`).setColor('#ffd166');
+                this.phaseText.setText(`☀ Dag ${this.wave} · ${remain}s`).setColor('#ffd166');
                 this.hintText.setText('Hugg ved • 🛒 bygg');
             } else {
-                this.phaseText.setText(`🌙 NATT ${this.wave}  ·  daggry om ${remain}s`).setColor('#9fb0ff');
-                this.hintText.setText('Mat bålet • sving øksa');
+                this.phaseText.setText(`🌙 Natt ${this.wave} · ${remain}s`).setColor('#9fb0ff');
+                this.hintText.setText('Mat bålet • slåss');
             }
             if (this.shopBtn.visible !== day) {
                 this.shopBtn.setVisible(day);
