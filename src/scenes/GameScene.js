@@ -37,6 +37,7 @@ export default class GameScene extends Phaser.Scene {
         this.wave = 1;
         this.phase = 'day';            // 'day' | 'night'
         this.phaseEnd = this.time.now + DAY_SECONDS * 1000;
+        this.phaseDuration = DAY_SECONDS;
 
         this.maxHp = 100;
         this.hp = 100;
@@ -408,13 +409,13 @@ export default class GameScene extends Phaser.Scene {
             Array.from({ length: count }, (_, i) => at(off + i * 360 / count, r));
 
         this.slots = {
-            gjerde: ring(70, 12),                         // inner palisade
-            piggfelle: ring(46, 4, 45),                   // traps just inside the wall
-            taarn: [at(45, 122), at(135, 122), at(225, 122), at(315, 122)],
-            iskanon: [at(180, 122), at(0, 122)],          // left / right
-            bombekaster: [at(270, 120), at(90, 120)],     // top / bottom
-            hus: [at(208, 168), at(332, 168)],            // outer lower corners
-            sagbruk: [at(28, 168), at(152, 168)]          // outer upper corners
+            gjerde: ring(72, 16),                         // dense inner palisade
+            piggfelle: ring(48, 6, 30),                   // traps just inside the wall
+            taarn: ring(110, 6),                          // tower ring
+            iskanon: ring(140, 4, 45),                    // outer ring
+            bombekaster: ring(140, 4, 0),                 // interleaved with ice cannons
+            hus: ring(166, 3, 50),                        // outer support
+            sagbruk: ring(166, 3, 130)
         };
     }
 
@@ -422,17 +423,27 @@ export default class GameScene extends Phaser.Scene {
     createHUD() {
         this.add.rectangle(0, 0, W, PLAY_TOP - 8, 0x10180f, 0.82).setOrigin(0).setDepth(2000);
 
-        this.woodText = this.add.text(12, 10, '🪵 12', {
+        // day/night time-remaining bar across the very top
+        this.add.rectangle(0, 0, W, 7, 0x000000, 0.55).setOrigin(0, 0).setDepth(2003);
+        this.timeBar = this.add.rectangle(0, 0, W, 7, 0xffd166).setOrigin(0, 0).setDepth(2004);
+
+        this.woodText = this.add.text(12, 14, '🪵 12', {
             fontSize: '20px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
         }).setDepth(2001);
 
-        this.scoreText = this.add.text(W - 12, 10, '0', {
+        this.scoreText = this.add.text(W - 12, 14, '0', {
             fontSize: '20px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
         }).setOrigin(1, 0).setDepth(2001);
 
-        this.phaseText = this.add.text(W / 2, 12, '', {
-            fontSize: '16px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
+        this.phaseText = this.add.text(W / 2, 16, '', {
+            fontSize: '15px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
         }).setOrigin(0.5, 0).setDepth(2001);
+
+        // pause / menu button
+        this.pauseBtn = this.add.circle(W - 24, 96, 16, 0x3a4049, 0.9)
+            .setStrokeStyle(2, 0xffd166).setDepth(2004).setInteractive({ useHandCursor: true });
+        this.add.text(W - 24, 95, '⏸', { fontSize: '16px' }).setOrigin(0.5).setDepth(2005);
+        this.pauseBtn.on('pointerup', () => this.openPause());
 
         // Health bar
         this.add.text(12, 44, '❤', { fontSize: '14px' }).setDepth(2001);
@@ -492,7 +503,7 @@ export default class GameScene extends Phaser.Scene {
 
     onButton(px, py) {
         const near = (b, r) => Phaser.Math.Distance.Between(px, py, b.x, b.y) < r;
-        return near(this.swingBtn, 64) || near(this.feedBtn, 44) ||
+        return near(this.swingBtn, 64) || near(this.feedBtn, 44) || near(this.pauseBtn, 26) ||
                (this.shopBtn.visible && near(this.shopBtn, 40)) ||
                Phaser.Math.Distance.Between(px, py, FIRE.x, FIRE.y) < 40;
     }
@@ -661,6 +672,30 @@ export default class GameScene extends Phaser.Scene {
         ];
     }
 
+    openPause() {
+        if (this.menuOpen || this.gameIsOver) return;
+        this.menuOpen = true;
+        this.swingHeld = false;
+        const c = this.add.container(0, 0).setDepth(4500);
+        c.add(this.add.rectangle(0, 0, W, H, 0x05080d, 0.82).setOrigin(0).setInteractive());
+        c.add(this.add.text(W / 2, H / 2 - 150, '⏸ PAUSE', {
+            fontSize: '34px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
+        }).setOrigin(0.5));
+
+        const mk = (dy, label, color, fn) => {
+            const r = this.add.rectangle(W / 2, H / 2 + dy, 240, 56, color)
+                .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
+            c.add(r);
+            c.add(this.add.text(W / 2, H / 2 + dy, label, {
+                fontSize: '20px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+            }).setOrigin(0.5));
+            r.on('pointerup', fn);
+        };
+        mk(-70, '▶ FORTSETT', 0xc1440e, () => { c.destroy(); this.menuOpen = false; });
+        mk(0, '↻ START PÅ NYTT', 0x2a6b3a, () => this.scene.restart());
+        mk(70, '🏠 HOVEDMENY', 0x3a4049, () => this.scene.start('MenuScene'));
+    }
+
     offerUpgrades(headline) {
         this.menuOpen = true;
         this.swingHeld = false;   // stop auto-swinging while choosing
@@ -712,7 +747,7 @@ export default class GameScene extends Phaser.Scene {
             // staggered pop-in; card becomes tappable only once it lands —
             // this doubles as the "anti-misclick" delay
             this.tweens.add({
-                targets: cardC, scale: 1, alpha: 1, duration: 300, delay: 180 + i * 150, ease: 'Back.out',
+                targets: cardC, scale: 1, alpha: 1, duration: 360, delay: 340 + i * 240, ease: 'Back.out',
                 onComplete: () => {
                     if (!cardC.active) return;
                     if (i === picks.length - 1) this.tweens.add({ targets: hint, alpha: 1, duration: 200 });
@@ -749,7 +784,13 @@ export default class GameScene extends Phaser.Scene {
         if (this.menuOpen || this.gameIsOver) return;
         if (this.phase !== 'day') { this.floatText(this.player.x, this.player.y - 30, 'Bygg på dagtid', '#ff6b6b'); this.sfx.deny(); return; }
         this.menuOpen = true;
+        this.swingHeld = false;
+        this.shopArmed = false;          // ignore buys until the panel settles
         this.renderShop();
+        // fade the panel in, then arm it — stops a lingering touch from buying
+        this.shopContainer.setAlpha(0);
+        this.tweens.add({ targets: this.shopContainer, alpha: 1, duration: 220 });
+        this.time.delayedCall(420, () => { this.shopArmed = true; });
     }
 
     renderShop() {
@@ -807,6 +848,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     buyStructure(item) {
+        if (!this.shopArmed) return;     // panel still animating in
         const cost = this.shopCost(item);
         const slot = this.slots[item.key].find(s => !s.taken);
         if (!slot) { this.sfx.deny(); return; }
@@ -828,7 +870,7 @@ export default class GameScene extends Phaser.Scene {
         }[type];
         const s = this.add.image(slot.x, slot.y, tex).setDepth(slot.y);
         s.type = type; s.slot = slot; s.dead = false; s.cd = 0;
-        if (type === 'gjerde') { s.maxHp = 40; s.hp = 40; }
+        if (type === 'gjerde') { s.maxHp = 100; s.hp = 100; }
         s.shadow = this.addShadow(slot.x, slot.y + 14, 32, 0.45, slot.y - 1);
         s.setScale(0.2);
         this.tweens.add({ targets: s, scale: 1, duration: 300, ease: 'Back.out' });
@@ -927,6 +969,7 @@ export default class GameScene extends Phaser.Scene {
         const n = this.wave;
         const dur = 16 + (n - 1) * 4;
         this.phaseEnd = this.time.now + dur * 1000;
+        this.phaseDuration = dur;
         this.sfx.nightStart();
         this.banner(`🌙  NATT ${n}\nOverlev til daggry!`, 0x8ea0ff);
 
@@ -946,6 +989,7 @@ export default class GameScene extends Phaser.Scene {
         const survived = this.wave;       // the night just survived
         this.wave++;
         this.phaseEnd = this.time.now + DAY_SECONDS * 1000;
+        this.phaseDuration = DAY_SECONDS;
         if (this.spawnTimer) { this.spawnTimer.remove(); this.spawnTimer = null; }
         // sweep remaining enemies at dawn
         this.enemies.forEach(e => {
@@ -977,12 +1021,16 @@ export default class GameScene extends Phaser.Scene {
 
         const n = this.wave;
 
-        // pick a type — tougher variants unlock at night 5
+        // pick a type — a new variant unlocks every 2 nights starting at night 5
+        // (brute from 5, flyer from 7) so they're never introduced all at once
+        const unlocked = ['shade'];
+        if (n >= 5) unlocked.push('brute');
+        if (n >= 7) unlocked.push('flyer');
         let type = 'shade';
-        if (n >= 5) {
-            const r = Math.random();
-            if (r < 0.25) type = 'brute';
-            else if (r < 0.50) type = 'flyer';
+        const r = Math.random();
+        // ~45% chance to be a special type once any are unlocked
+        if (unlocked.length > 1 && r < 0.45) {
+            type = unlocked[1 + Math.floor(Math.random() * (unlocked.length - 1))];
         }
 
         const base = { hp: 10 + (n - 1) * 6, speed: 28 + (n - 1) * 4, dmg: 4 + (n - 1) * 2 };
@@ -1059,6 +1107,11 @@ export default class GameScene extends Phaser.Scene {
             else this.startDay();
         }
 
+        // day/night time-remaining bar
+        const tRatio = Phaser.Math.Clamp((this.phaseEnd - time) / (this.phaseDuration * 1000), 0, 1);
+        this.timeBar.width = W * tRatio;
+        this.timeBar.setFillStyle(this.phase === 'day' ? 0xffd166 : 0x6f8cff);
+
         // fire/darkness visuals
         const fuelRatio = this.fuel / this.fuelMax;
         let nightAlpha = 0;
@@ -1131,7 +1184,7 @@ export default class GameScene extends Phaser.Scene {
             const toPlayer = Phaser.Math.Distance.Between(e.x, e.y, this.player.x, this.player.y);
 
             // a fence in the way must be smashed first — but flyers soar over it
-            let fence = null, fd = 32;
+            let fence = null, fd = 42;
             if (!e.flies) this.structures.forEach(s => {
                 if (s.type !== 'gjerde' || s.dead) return;
                 const d = Phaser.Math.Distance.Between(e.x, e.y, s.x, s.y);

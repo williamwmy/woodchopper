@@ -89,9 +89,10 @@ upgrades, shop/building, phases (day/night), and `update()`.
   is a dark overlay + additive glow scaled by fuel ratio.
 - **Enemies**: spawn at edges, path to the fire (attack a blocking fence first,
   or the player if in the way), gnaw the fire's fuel when they reach it. Three
-  types (see `spawnEnemy` spec table): `shade` (basic), and from night 5 also
-  `brute` (slow, tanky, big) and `flyer` (fast, fragile, flies *over* fences,
-  flapping wings). Ice-cannon-frozen enemies are tinted icy light-blue
+  types (see `spawnEnemy` spec table): `shade` (basic); a new variant unlocks
+  every 2 nights starting at night 5 — `brute` (slow, tanky, big) from night 5,
+  `flyer` (fast, fragile, flies *over* fences, flapping wings) from night 7.
+  Ice-cannon-frozen enemies are tinted icy light-blue
   (`setTintFill(0xaee9ff)`) and slowed while `slowUntil` is active.
 - **Characters + meta-progression** (`src/utils/Characters.js`, localStorage
   `emberwood_characters`): a roster of characters, each with an appearance
