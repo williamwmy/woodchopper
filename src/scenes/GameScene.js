@@ -60,7 +60,7 @@ export default class GameScene extends Phaser.Scene {
         this.trees = [];
         this.enemies = [];
         this.structures = [];
-        this.buildCounts = { gjerde: 0, taarn: 0, hus: 0, sagbruk: 0 };
+        this.buildCounts = { gjerde: 0, taarn: 0, iskanon: 0, bombekaster: 0, piggfelle: 0, hus: 0, sagbruk: 0 };
         this.houseRegen = 0;
         this.spawnTimer = null;
         this.gameIsOver = false;
@@ -632,7 +632,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     shopCost(item) {
-        return Math.round(item.base * Math.pow(1.4, this.buildCounts[item.key]));
+        return Math.round(item.base * Math.pow(1.4, this.buildCounts[item.key] || 0));
     }
 
     openShop() {
