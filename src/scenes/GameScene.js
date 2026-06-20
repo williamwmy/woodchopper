@@ -137,6 +137,26 @@ export default class GameScene extends Phaser.Scene {
         g.fillStyle(0xffd0dd, 1); g.fillCircle(10, 16, 1); g.fillCircle(20, 16, 1);     // glints
         g.generateTexture('enemy', 32, 38); g.clear();
 
+        // brute – slow, bulky rock-troll (tanky)
+        g.fillStyle(0x000000, 0.18); g.fillEllipse(22, 41, 36, 9);                      // shadow
+        g.fillStyle(0x3a4a2e, 1); g.fillRoundedRect(6, 12, 32, 28, 8);                  // bulky body
+        g.fillStyle(0x4a5e3a, 1); g.fillRoundedRect(6, 12, 32, 12, 8);                  // lighter top
+        g.fillStyle(0x2c3a24, 1); g.fillRect(2, 22, 6, 12); g.fillRect(36, 22, 6, 12);  // arms
+        g.fillStyle(0x6b7d52, 1); g.fillCircle(14, 10, 4); g.fillCircle(30, 10, 4);     // mossy lumps
+        g.fillStyle(0xffd23b, 1); g.fillRect(14, 22, 5, 4); g.fillRect(26, 22, 5, 4);   // angry eyes
+        g.fillStyle(0x9aa882, 1); g.fillRect(15, 32, 14, 3);                            // teeth/jaw
+        g.generateTexture('brute', 44, 46); g.clear();
+
+        // flyer – fragile floating wisp with wings
+        g.fillStyle(0x9fb8ff, 0.5); g.fillTriangle(2, 8, 14, 12, 4, 20);                // left wing
+        g.fillStyle(0x9fb8ff, 0.5); g.fillTriangle(30, 8, 18, 12, 28, 20);             // right wing
+        g.fillStyle(0x5b76c8, 1); g.fillCircle(16, 14, 10);                             // body
+        g.fillStyle(0x8aa0e6, 1); g.fillCircle(16, 11, 7);
+        g.fillStyle(0xffffff, 1); g.fillCircle(13, 13, 2); g.fillCircle(19, 13, 2);     // eyes
+        g.fillStyle(0x1a2240, 1); g.fillCircle(13, 13, 1); g.fillCircle(19, 13, 1);
+        g.fillStyle(0x5b76c8, 0.7); g.fillTriangle(11, 22, 16, 30, 21, 22);             // wispy tail
+        g.generateTexture('flyer', 32, 32); g.clear();
+
         // wood chip particle
         g.fillStyle(0xb07a3c, 1); g.fillRect(0, 0, 6, 6);
         g.generateTexture('chip', 6, 6); g.clear();
@@ -145,11 +165,14 @@ export default class GameScene extends Phaser.Scene {
         g.fillStyle(0xffb347, 1); g.fillRect(0, 0, 5, 5);
         g.generateTexture('ember', 5, 5); g.clear();
 
-        // slash arc
-        g.fillStyle(0xffffff, 0.9);
-        g.slice(0, 0, 46, Phaser.Math.DegToRad(-45), Phaser.Math.DegToRad(45), false);
+        // slash – a crescent blade trail (centred, opening to the right)
+        g.fillStyle(0xffffff, 0.95);
+        g.beginPath();
+        g.arc(26, 26, 23, Phaser.Math.DegToRad(-62), Phaser.Math.DegToRad(62), false);
+        g.arc(26, 26, 13, Phaser.Math.DegToRad(62), Phaser.Math.DegToRad(-62), true);
+        g.closePath();
         g.fillPath();
-        g.generateTexture('slash', 52, 52); g.clear();
+        g.generateTexture('slash', 56, 56); g.clear();
 
         // fence – wooden palisade
         g.fillStyle(0x8a5a2b, 1);
@@ -514,13 +537,27 @@ export default class GameScene extends Phaser.Scene {
         this.swingCd = this.time.now + this.swingDelay;
         this.sfx.swing();
 
-        // visual arc – size matches reach, colour matches axe power
+        // swing arc — sweeps out from the axe (at the player's hand)
+        const dir = this.facing;
         const s = this.slashScale;
-        const dur = Math.max(110, this.swingDelay * 0.7);
-        const arc = this.add.image(this.player.x + this.facing * 16, this.player.y, 'slash')
-            .setDepth(600).setFlipX(this.facing < 0).setScale(s * 0.6).setAlpha(0.95)
-            .setTint(this.slashColor);
-        this.tweens.add({ targets: arc, scale: s, alpha: 0, duration: dur, onComplete: () => arc.destroy() });
+        const dur = Math.max(120, this.swingDelay * 0.6);
+        const hx = this.player.x + dir * 13;   // axe-hand position
+        const hy = this.player.y - 4;
+        const arc = this.add.image(hx, hy, 'slash')
+            .setDepth(601).setFlipX(dir < 0).setScale(s * 0.5).setAlpha(0.95)
+            .setTint(this.slashColor)
+            .setAngle(dir > 0 ? -72 : 72);     // blade raised
+        this.tweens.add({
+            targets: arc, angle: dir > 0 ? 34 : -34, scale: s, alpha: 0,
+            duration: dur, ease: 'Cubic.out', onComplete: () => arc.destroy()
+        });
+        // a little chop-lunge on the lumberjack so the swing reads as his
+        if (!this.swingLunge || !this.swingLunge.isPlaying()) {
+            this.swingLunge = this.tweens.add({
+                targets: this.player, angle: dir * 18, duration: dur * 0.45, yoyo: true,
+                onComplete: () => { if (this.player.active) this.player.setAngle(0); }
+            });
+        }
         // flash the reach ring so range is obvious
         this.reachRing.setAlpha(0.4);
         this.tweens.add({ targets: this.reachRing, alpha: 0.18, duration: 260 });
@@ -939,16 +976,37 @@ export default class GameScene extends Phaser.Scene {
         else { x = W - 16; y = Phaser.Math.Between(PLAY_TOP, PLAY_BOTTOM); }
 
         const n = this.wave;
-        const e = this.add.image(x, y, 'enemy').setDepth(y);
-        e.hp = 10 + (n - 1) * 6;
-        e.speed = 28 + (n - 1) * 4;
-        e.dmg = 4 + (n - 1) * 2;
+
+        // pick a type — tougher variants unlock at night 5
+        let type = 'shade';
+        if (n >= 5) {
+            const r = Math.random();
+            if (r < 0.25) type = 'brute';
+            else if (r < 0.50) type = 'flyer';
+        }
+
+        const base = { hp: 10 + (n - 1) * 6, speed: 28 + (n - 1) * 4, dmg: 4 + (n - 1) * 2 };
+        const spec = {
+            shade: { tex: 'enemy', hp: 1, speed: 1, dmg: 1, scale: 1 },
+            brute: { tex: 'brute', hp: 2.6, speed: 0.55, dmg: 1.7, scale: 1.4 },
+            flyer: { tex: 'flyer', hp: 0.55, speed: 1.5, dmg: 0.9, scale: 0.95, flies: true }
+        }[type];
+
+        const e = this.add.image(x, y, spec.tex).setDepth(y);
+        e.etype = type;
+        e.hp = e.maxHp = Math.round(base.hp * spec.hp);
+        e.speed = base.speed * spec.speed;
+        e.dmg = Math.round(base.dmg * spec.dmg);
+        e.baseScale = spec.scale;
+        e.flies = !!spec.flies;
+        e.flap = Math.random() * Math.PI * 2;
         e.hitCd = 0;
         e.dead = false;
         e.slowUntil = 0;
         e.slowFactor = 1;
-        e.setScale(0).setAlpha(0);
-        this.tweens.add({ targets: e, scale: 1, alpha: 1, duration: 250 });
+        if (e.flies) e.setAlpha(0.92);
+        e.setScale(0);
+        this.tweens.add({ targets: e, scale: spec.scale, duration: 250 });
         this.enemies.push(e);
     }
 
@@ -1030,7 +1088,8 @@ export default class GameScene extends Phaser.Scene {
             if (vx < -0.05) this.facing = -1; else if (vx > 0.05) this.facing = 1;
             this.player.setFlipX(this.facing < 0);
             this.walkPhase += dt * 12;
-            this.player.setRotation(Math.sin(this.walkPhase) * 0.08);
+            const lunging = this.swingLunge && this.swingLunge.isPlaying();
+            if (!lunging) this.player.setRotation(Math.sin(this.walkPhase) * 0.08);
             this.player.setDepth(this.player.y);
 
             // boots upgrade → kick up dust while moving
@@ -1041,7 +1100,7 @@ export default class GameScene extends Phaser.Scene {
                     .setDepth(this.player.y - 1).setAlpha(0.6).setScale(0.6 + boots * 0.15);
                 this.tweens.add({ targets: d, alpha: 0, scale: 0.2, y: d.y + 6, duration: 360, onComplete: () => d.destroy() });
             }
-        } else {
+        } else if (!(this.swingLunge && this.swingLunge.isPlaying())) {
             this.player.setRotation(0);
         }
 
@@ -1055,17 +1114,25 @@ export default class GameScene extends Phaser.Scene {
         this.enemies.forEach(e => {
             if (e.dead) return;
 
-            // ice-cannon slow
+            // ice-cannon slow → clearly icy light-blue while frozen
             let speed = e.speed;
-            if (e.slowUntil && time < e.slowUntil) { speed *= e.slowFactor; e.setTint(0x9fe6ff); }
+            const frozen = e.slowUntil && time < e.slowUntil;
+            if (frozen) { speed *= e.slowFactor; e.setTintFill(0xaee9ff); }
             else if (e.slowUntil) { e.slowUntil = 0; e.clearTint(); }
+
+            // flying enemies flap their wings (frozen ones hold still)
+            if (e.flies) {
+                e.flap += dt * 12;
+                const f = frozen ? 1 : 1 + Math.sin(e.flap) * 0.12;
+                e.setScale(e.baseScale, e.baseScale * f);
+            }
 
             const toFire = Phaser.Math.Distance.Between(e.x, e.y, FIRE.x, FIRE.y);
             const toPlayer = Phaser.Math.Distance.Between(e.x, e.y, this.player.x, this.player.y);
 
-            // a fence in the way must be smashed first
+            // a fence in the way must be smashed first — but flyers soar over it
             let fence = null, fd = 32;
-            this.structures.forEach(s => {
+            if (!e.flies) this.structures.forEach(s => {
                 if (s.type !== 'gjerde' || s.dead) return;
                 const d = Phaser.Math.Distance.Between(e.x, e.y, s.x, s.y);
                 if (d < fd) { fd = d; fence = s; }
