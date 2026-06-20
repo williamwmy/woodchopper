@@ -144,59 +144,87 @@ export default class CharacterScene extends Phaser.Scene {
         this.reset();
         this.title('NY KARAKTER');
 
-        this.previewImg = this.add.image(W / 2, 116, 'preview').setScale(3.4);
+        // roomy, fixed vertical rhythm (fits the shortest portrait canvas)
+        const yPreview = 132;
+        const yName = 236;
+        const yGender = 308;
+        const ySkin = 380;
+        const yHair = 452;
+        const yShirt = 524;
+
+        // big live preview, framed
+        this.layer.add(this.add.circle(W / 2, yPreview, 56, 0x1d2e18).setStrokeStyle(3, 0x4a6b3a));
+        this.previewImg = this.add.image(W / 2, yPreview, 'preview').setScale(3.4);
         this.layer.add(this.previewImg);
         this.refreshPreview();
 
-        let y = 176;
         // name — a real text input embedded in the GUI (scales with the game)
         const el = document.createElement('input');
         el.type = 'text';
         el.maxLength = 14;
         el.placeholder = 'Skriv navn…';
         el.value = this.draft.name || '';
-        el.style.cssText = 'width:280px;height:34px;border-radius:8px;border:2px solid #4a6b3a;' +
-            'background:#1d2e18;color:#fff;font:600 16px Arial;text-align:center;outline:none;';
-        this.nameInput = this.add.dom(W / 2, y, el);
+        el.style.cssText = 'width:300px;height:44px;border-radius:10px;border:2px solid #4a6b3a;' +
+            'background:#1d2e18;color:#fff;font:600 19px Arial;text-align:center;outline:none;';
+        this.nameInput = this.add.dom(W / 2, yName, el);
         el.addEventListener('input', () => { this.draft.name = el.value.slice(0, 14); });
 
-        y += 44;
-        this.genderText = this.add.text(W / 2, y, '', {
-            fontSize: '16px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
-        }).setOrigin(0.5);
-        this.layer.add(this.genderText);
-        this.button(W / 2 - 110, y, 40, 36, '◀', 0x3a4049, () => this.cycleGender(-1), '18px');
-        this.button(W / 2 + 110, y, 40, 36, '▶', 0x3a4049, () => this.cycleGender(1), '18px');
-        this.updateGenderText();
+        // gender as two labelled buttons
+        this.genderButtons(yGender);
 
-        y += 40;
-        this.swatchRow('Hud', SKINS, 'skin', y);
-        y += 44;
-        this.swatchRow('Hår', HAIRS, 'hair', y);
-        y += 44;
-        this.swatchRow('Klær', SHIRTS, 'shirt', y);
+        // colour pickers — big swatches across the full width
+        this.swatchRow('HUD', SKINS, 'skin', ySkin);
+        this.swatchRow('HÅR', HAIRS, 'hair', yHair);
+        this.swatchRow('KLÆR', SHIRTS, 'shirt', yShirt);
 
-        this.button(W / 2 - 78, H - 78, 140, 52, 'OPPRETT', 0x2a6b3a, () => {
+        // actions
+        this.button(W / 2 - 84, H - 56, 152, 56, 'OPPRETT', 0x2a6b3a, () => {
             if (!this.draft.name) this.draft.name = 'Tømmerhugger';
             addCharacter(this.roster, this.draft);
             this.showRoster();
+        }, '20px');
+        this.button(W / 2 + 84, H - 56, 152, 56, 'AVBRYT', 0x3a4049, () => this.showRoster(), '20px');
+    }
+
+    genderButtons(y) {
+        this.layer.add(this.add.text(W / 2, y - 30, 'KJØNN', {
+            fontSize: '13px', fontFamily: 'Arial', fontStyle: 'bold', color: '#8aa090'
+        }).setOrigin(0.5));
+        const rects = [];
+        const restyle = () => rects.forEach((r, j) => {
+            const on = this.draft.gender === j;
+            r.setFillStyle(on ? 0x2a6b3a : 0x1d2e18);
+            r.setStrokeStyle(on ? 4 : 2, on ? 0xffd166 : 0x4a6b3a);
         });
-        this.button(W / 2 + 78, H - 78, 140, 52, 'AVBRYT', 0x3a4049, () => this.showRoster());
+        GENDERS.forEach((label, i) => {
+            const x = W / 2 + (i === 0 ? -86 : 86);
+            const r = this.add.rectangle(x, y, 156, 46, 0x1d2e18)
+                .setInteractive({ useHandCursor: true });
+            const t = this.add.text(x, y, label, {
+                fontSize: '18px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+            }).setOrigin(0.5);
+            this.layer.add(r); this.layer.add(t);
+            rects.push(r);
+            r.on('pointerup', () => { this.draft.gender = i; restyle(); this.refreshPreview(); });
+        });
+        restyle();
     }
 
     swatchRow(label, palette, field, y) {
-        this.layer.add(this.add.text(20, y, label, {
-            fontSize: '13px', fontFamily: 'Arial', color: '#cfe3d4'
-        }).setOrigin(0, 0.5));
-        const startX = 84, gap = (W - startX - 24) / palette.length;
+        this.layer.add(this.add.text(W / 2, y - 28, label, {
+            fontSize: '13px', fontFamily: 'Arial', fontStyle: 'bold', color: '#8aa090'
+        }).setOrigin(0.5));
+        const size = 40;
+        const cell = (W - 32) / palette.length;
         const rects = [];
         const highlight = () => rects.forEach((r, j) => {
             const on = this.draft[field] === j;
-            r.setStrokeStyle(on ? 4 : 1, on ? 0xffffff : 0x000000);
+            r.setStrokeStyle(on ? 5 : 2, on ? 0xffffff : 0x10180f);
+            r.setScale(on ? 1.12 : 1);
         });
         palette.forEach((col, i) => {
-            const x = startX + gap * i + gap / 2;
-            const sw = this.add.rectangle(x, y, 26, 26, col)
+            const x = 16 + cell * i + cell / 2;
+            const sw = this.add.rectangle(x, y, size, size, col)
                 .setInteractive({ useHandCursor: true });
             this.layer.add(sw);
             rects.push(sw);
@@ -204,16 +232,6 @@ export default class CharacterScene extends Phaser.Scene {
             sw.on('pointerup', () => { this.draft[field] = i; highlight(); this.refreshPreview(); });
         });
         highlight();
-    }
-
-    cycleGender(d) {
-        this.draft.gender = (this.draft.gender + d + GENDERS.length) % GENDERS.length;
-        this.updateGenderText();
-        this.refreshPreview();
-    }
-
-    updateGenderText() {
-        this.genderText.setText(GENDERS[this.draft.gender]);
     }
 
     refreshPreview() {
