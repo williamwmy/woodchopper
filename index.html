@@ -39,11 +39,37 @@
             border-radius: 8px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
+
+        /* Portrait-only: cover the game with a notice when a touch device
+           is held in landscape (the game is designed for portrait). */
+        #rotate-notice {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            background: #0b0f0c;
+            color: #ffd166;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 24px;
+            font: 600 20px Arial, sans-serif;
+            gap: 14px;
+        }
+        #rotate-notice .icon { font-size: 56px; }
+        @media (orientation: landscape) and (pointer: coarse) {
+            #rotate-notice { display: flex; }
+        }
     </style>
 </head>
 <body>
     <div id="game-container">
         <canvas id="game-canvas"></canvas>
+    </div>
+    <div id="rotate-notice">
+        <div class="icon">🔄</div>
+        <div>Vri telefonen til stående<br>for å spille Emberwood</div>
     </div>
     <script type="module" src="/src/main.js"></script>
 </body>

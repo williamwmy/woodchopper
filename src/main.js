@@ -28,6 +28,15 @@ const config = {
 
 const game = new Phaser.Game(config);
 
+// iOS reports stale sizes during rotation, leaving the canvas half-sized when
+// rotating back to portrait. Force the scale manager to recompute afterwards.
+const refreshScale = () => { try { game.scale.refresh(); } catch (e) { /* not ready */ } };
+window.addEventListener('resize', () => setTimeout(refreshScale, 120));
+window.addEventListener('orientationchange', () => {
+    setTimeout(refreshScale, 200);
+    setTimeout(refreshScale, 500);
+});
+
 // Register the PWA service worker in production builds only
 // (in dev it would interfere with Vite's hot module reload).
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {

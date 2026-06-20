@@ -1323,7 +1323,6 @@ export default class GameScene extends Phaser.Scene {
         if (this.gameIsOver) return;
         this.gameIsOver = true;
         this.gameOverReason = reason;
-        this.sfx.gameOver();
         if (this.spawnTimer) this.spawnTimer.remove();
 
         const hi = Number(localStorage.getItem('emberwood_highscore') || 0);
@@ -1335,11 +1334,51 @@ export default class GameScene extends Phaser.Scene {
         const p = this.char;
         p.runs += 1;
         p.bestNight = Math.max(p.bestNight, this.wave);
-        const toClaim = milestonesUnlocked(this.wave);   // floor(night / 5)
+        this.toClaim = milestonesUnlocked(this.wave);   // floor(night / 5)
         saveRoster(this.roster);
 
-        if (toClaim > 0) this.claimMilestone(1, toClaim);
-        else this.showGameOver(reason);
+        // play a clear death animation + sound BEFORE any reward screen
+        this.deathSequence();
+    }
+
+    deathSequence() {
+        this.sfx.gameOver();
+        this.sfx.hurt();
+        this.cameras.main.shake(450, 0.014);
+        this.cameras.main.flash(320, 140, 20, 20);
+
+        // the lumberjack falls
+        this.tweens.add({
+            targets: this.player, angle: this.facing * 90, alpha: 0.15,
+            scaleX: this.player.scaleX * 0.7, scaleY: this.player.scaleY * 0.7,
+            y: this.player.y + 12, duration: 700, ease: 'Cubic.in'
+        });
+        this.burst(this.player.x, this.player.y, 'ember', 10);
+
+        const c = this.add.container(0, 0).setDepth(4900);
+        c.add(this.add.rectangle(0, 0, W, H, 0x12060a, 0).setOrigin(0));
+        this.tweens.add({ targets: c.list[0], alpha: 0.78, duration: 600 });
+
+        const big = this.add.text(W / 2, H / 2 - 30, 'GAME OVER', {
+            fontSize: '54px', fontFamily: 'Arial', fontStyle: 'bold',
+            color: '#ff4040', stroke: '#000000', strokeThickness: 6
+        }).setOrigin(0.5).setScale(2.4).setAlpha(0);
+        c.add(big);
+        this.tweens.add({ targets: big, scale: 1, alpha: 1, duration: 480, ease: 'Back.out' });
+        this.tweens.add({ targets: big, angle: { from: -3, to: 3 }, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay: 480 });
+
+        const sub = this.add.text(W / 2, H / 2 + 28, this.gameOverReason, {
+            fontSize: '17px', fontFamily: 'Arial', color: '#ffb0b0'
+        }).setOrigin(0.5).setAlpha(0);
+        c.add(sub);
+        this.tweens.add({ targets: sub, alpha: 1, duration: 400, delay: 500 });
+
+        // then move on to rewards / results
+        this.time.delayedCall(1900, () => {
+            c.destroy();
+            if (this.toClaim > 0) this.claimMilestone(1, this.toClaim);
+            else this.showGameOver(this.gameOverReason);
+        });
     }
 
     claimMilestone(index, total) {
