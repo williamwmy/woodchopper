@@ -89,6 +89,12 @@ upgrades, shop/building, phases (day/night), and `update()`.
   is a dark overlay + additive glow scaled by fuel ratio.
 - **Enemies**: spawn at edges, path to the fire (attack a blocking fence first,
   or the player if in the way), gnaw the fire's fuel when they reach it.
+- **Meta-progression** (`src/utils/Profile.js`, localStorage `emberwood_profile`):
+  a persistent profile (name, bestNight, runs, claimed, perks). Reaching a night
+  milestone (every 5) grants a permanent perk choice, shown at game over before
+  the SLUTT screen (`claimMilestone`). Perks are *tiny* (≈1/6 of an in-run
+  upgrade) and applied to base stats at the top of `create()`. The menu shows the
+  profile and lets the player rename (window.prompt).
 
 ## Tuning knobs (where to balance)
 

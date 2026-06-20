@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { SoundFX } from '../utils/SoundFX.js';
+import { loadProfile, saveProfile, milestonesUnlocked, PERKS } from '../utils/Profile.js';
 
 // W/H/FIRE/PLAY_BOTTOM are recomputed from the real canvas size in create()
 let W = 400;
@@ -55,6 +56,16 @@ export default class GameScene extends Phaser.Scene {
         this.slashColor = 0xffffff;
         this.slashScale = 1;
         this.dustCd = 0;
+
+        // ---- Permanent profile perks (tiny, persist across runs) ----
+        this.profile = loadProfile();
+        const pk = this.profile.perks;
+        this.axeDmg += pk.axe;
+        this.maxHp += pk.hp * 3; this.hp = this.maxHp;
+        this.moveSpeed += pk.speed * 4;
+        this.fuelMax += pk.fuel * 5; this.fuel = this.fuelMax;
+        this.wood += pk.wood * 2;
+        this.fuelDrainMult *= Math.max(0.5, 1 - pk.drain * 0.02);
 
         this.facing = 1;               // 1 right, -1 left
         this.trees = [];
@@ -1091,38 +1102,98 @@ export default class GameScene extends Phaser.Scene {
     gameOver(reason) {
         if (this.gameIsOver) return;
         this.gameIsOver = true;
+        this.gameOverReason = reason;
         this.sfx.gameOver();
         if (this.spawnTimer) this.spawnTimer.remove();
 
         const hi = Number(localStorage.getItem('emberwood_highscore') || 0);
         if (this.score > hi) localStorage.setItem('emberwood_highscore', String(this.score));
-        const best = Math.max(hi, this.score);
+        this.finalBest = Math.max(hi, this.score);
 
+        // update profile + figure out newly-earned permanent perks
+        const p = this.profile;
+        p.runs += 1;
+        p.bestNight = Math.max(p.bestNight, this.wave);
+        const toClaim = Math.max(0, milestonesUnlocked(p.bestNight) - p.claimed);
+        saveProfile(p);
+
+        if (toClaim > 0) this.claimMilestone(toClaim);
+        else this.showGameOver(reason);
+    }
+
+    claimMilestone(remaining) {
+        const p = this.profile;
+        const milestoneNight = (p.claimed + 1) * 5;
+        const picks = Phaser.Utils.Array.Shuffle(PERKS.slice()).slice(0, 3);
+
+        const c = this.add.container(0, 0).setDepth(5200);
+        c.add(this.add.rectangle(0, 0, W, H, 0x05080d, 0.9).setOrigin(0).setInteractive());
+        c.add(this.add.text(W / 2, 120, '🏆 MILEPÆL!', {
+            fontSize: '30px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
+        }).setOrigin(0.5));
+        c.add(this.add.text(W / 2, 158, `Du nådde natt ${milestoneNight}\nVelg en permanent forsterkning`, {
+            fontSize: '15px', fontFamily: 'Arial', color: '#cfe3d4', align: 'center', lineSpacing: 6
+        }).setOrigin(0.5));
+
+        picks.forEach((perk, i) => {
+            const y = 250 + i * 120;
+            const card = this.add.rectangle(W / 2, y, 320, 104, 0x1d2e18)
+                .setStrokeStyle(3, 0x4a6b3a).setInteractive({ useHandCursor: true });
+            c.add(card);
+            c.add(this.add.text(W / 2, y - 26, perk.icon, { fontSize: '36px' }).setOrigin(0.5));
+            c.add(this.add.text(W / 2, y + 12, perk.name, {
+                fontSize: '18px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+            }).setOrigin(0.5));
+            const lvl = p.perks[perk.key] || 0;
+            c.add(this.add.text(W / 2, y + 36, `${perk.desc}  (nivå ${lvl} → ${lvl + 1})`, {
+                fontSize: '12px', fontFamily: 'Arial', color: '#bcd0c0'
+            }).setOrigin(0.5));
+            card.on('pointerover', () => card.setStrokeStyle(3, 0xffd166));
+            card.on('pointerout', () => card.setStrokeStyle(3, 0x4a6b3a));
+            card.on('pointerup', () => {
+                p.perks[perk.key] = (p.perks[perk.key] || 0) + 1;
+                p.claimed += 1;
+                saveProfile(p);
+                this.sfx.upgrade();
+                c.destroy();
+                if (remaining - 1 > 0) this.claimMilestone(remaining - 1);
+                else this.showGameOver(this.gameOverReason || 'Spillet er slutt');
+            });
+        });
+    }
+
+    showGameOver(reason) {
+        const p = this.profile;
         const c = this.add.container(0, 0).setDepth(5000);
-        c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.78).setOrigin(0).setInteractive());
-        c.add(this.add.text(W / 2, 200, 'SLUTT', {
+        c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.8).setOrigin(0).setInteractive());
+        c.add(this.add.text(W / 2, 170, 'SLUTT', {
             fontSize: '48px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ff5050'
         }).setOrigin(0.5));
-        c.add(this.add.text(W / 2, 250, reason, {
+        c.add(this.add.text(W / 2, 218, reason, {
             fontSize: '16px', fontFamily: 'Arial', color: '#cfe3d4'
         }).setOrigin(0.5));
-        c.add(this.add.text(W / 2, 320,
-            `Du nådde natt ${this.wave}\nPoeng: ${this.score}\nBeste: ${best}`, {
+        c.add(this.add.text(W / 2, 290,
+            `Du nådde natt ${this.wave}\nPoeng: ${this.score}\nBeste: ${this.finalBest}`, {
             fontSize: '20px', fontFamily: 'Arial', color: '#ffffff', align: 'center', lineSpacing: 8
         }).setOrigin(0.5));
+        const nextAt = (p.claimed + 1) * 5;
+        c.add(this.add.text(W / 2, 372,
+            `👤 ${p.name} · ${p.runs} runder\nNeste milepæl: natt ${nextAt}`, {
+            fontSize: '13px', fontFamily: 'Arial', color: '#9fd0ff', align: 'center', lineSpacing: 5
+        }).setOrigin(0.5));
 
-        const restart = this.add.rectangle(W / 2, 440, 220, 60, 0xc1440e)
+        const restart = this.add.rectangle(W / 2, 460, 220, 60, 0xc1440e)
             .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
         c.add(restart);
-        c.add(this.add.text(W / 2, 440, 'SPILL IGJEN', {
+        c.add(this.add.text(W / 2, 460, 'SPILL IGJEN', {
             fontSize: '22px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
         }).setOrigin(0.5));
         restart.on('pointerup', () => this.scene.restart());
 
-        const menu = this.add.rectangle(W / 2, 515, 220, 50, 0x2a6b3a)
+        const menu = this.add.rectangle(W / 2, 532, 220, 50, 0x2a6b3a)
             .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
         c.add(menu);
-        c.add(this.add.text(W / 2, 515, 'MENY', {
+        c.add(this.add.text(W / 2, 532, 'MENY', {
             fontSize: '18px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
         }).setOrigin(0.5));
         menu.on('pointerup', () => this.scene.start('MenuScene'));

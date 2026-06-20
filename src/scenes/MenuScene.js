@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { loadProfile, saveProfile, perkCount } from '../utils/Profile.js';
 
 let W = 400;
 let H = 700;
@@ -56,17 +57,38 @@ export default class MenuScene extends Phaser.Scene {
             align: 'left', lineSpacing: 8
         }).setOrigin(0.5, 0);
 
-        // High score — placed safely below the instruction block
-        let y = info.y + info.height + 24;
+        // Profile + high score — placed safely below the instruction block
+        let y = info.y + info.height + 22;
+        const profile = loadProfile();
+        const perks = perkCount(profile);
+
+        const nameText = this.add.text(W / 2, y, `👤 ${profile.name}  ✎`, {
+            fontSize: '16px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+        nameText.on('pointerup', () => {
+            const v = window.prompt('Navn på karakteren din:', profile.name);
+            if (v && v.trim()) {
+                profile.name = v.trim().slice(0, 16);
+                saveProfile(profile);
+                nameText.setText(`👤 ${profile.name}  ✎`);
+            }
+        });
+        y += 26;
+
         const hi = Number(localStorage.getItem('emberwood_highscore') || 0);
+        this.add.text(W / 2, y,
+            `Beste natt: ${profile.bestNight}   •   ${perks} permanente boosts`, {
+            fontSize: '13px', fontFamily: 'Arial', color: '#cfe3d4'
+        }).setOrigin(0.5);
+        y += 20;
         if (hi > 0) {
-            this.add.text(W / 2, y, `Beste: ${hi} poeng`, {
-                fontSize: '14px', fontFamily: 'Arial', color: '#ffd166'
+            this.add.text(W / 2, y, `Toppscore: ${hi}   •   neste milepæl: natt ${(profile.claimed + 1) * 5}`, {
+                fontSize: '13px', fontFamily: 'Arial', color: '#9fd0ff'
             }).setOrigin(0.5);
-            y += 34;
+            y += 22;
         }
 
-        this.makeButton(W / 2, Math.max(y + 18, 560), 'START', 0xc1440e, () => {
+        this.makeButton(W / 2, Math.max(y + 22, 552), 'START', 0xc1440e, () => {
             this.scene.start('GameScene');
         });
 
