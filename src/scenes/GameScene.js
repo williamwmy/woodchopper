@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { SoundFX } from '../utils/SoundFX.js';
-import { loadProfile, saveProfile, milestonesUnlocked, PERKS } from '../utils/Profile.js';
+import { loadRoster, saveRoster, getActive, milestonesUnlocked, PERKS, generateAvatarTexture } from '../utils/Characters.js';
 
 // W/H/FIRE/PLAY_BOTTOM are recomputed from the real canvas size in create()
 let W = 400;
@@ -57,9 +57,11 @@ export default class GameScene extends Phaser.Scene {
         this.slashScale = 1;
         this.dustCd = 0;
 
-        // ---- Permanent profile perks (tiny, persist across runs) ----
-        this.profile = loadProfile();
-        const pk = this.profile.perks;
+        // ---- Active character: appearance + permanent perks ----
+        this.roster = loadRoster();
+        this.char = getActive(this.roster);
+        generateAvatarTexture(this, 'player', this.char);   // player sprite from looks
+        const pk = this.char.perks;
         this.axeDmg += pk.axe;
         this.maxHp += pk.hp * 3; this.hp = this.maxHp;
         this.moveSpeed += pk.speed * 4;
@@ -78,13 +80,7 @@ export default class GameScene extends Phaser.Scene {
         this.menuOpen = false;
 
         // ---- World ----
-        this.ground = this.add.rectangle(0, 0, W, H, 0x3f7d4a).setOrigin(0);
-        for (let i = 0; i < 60; i++) {
-            const x = Phaser.Math.Between(0, W);
-            const y = Phaser.Math.Between(PLAY_TOP - 20, H);
-            this.add.rectangle(x, y, 3, 3, 0x356b40).setDepth(0);
-        }
-
+        this.createGround();
         this.createFire();
         this.createTrees();
         this.createPlayer();
@@ -95,6 +91,8 @@ export default class GameScene extends Phaser.Scene {
             .setOrigin(0).setAlpha(0).setDepth(900);
         this.fireGlow = this.add.image(FIRE.x, FIRE.y, 'glow')
             .setBlendMode(Phaser.BlendModes.ADD).setDepth(901).setAlpha(0).setScale(2.4);
+        // vignette for a framed, cozy look (under the night overlay)
+        this.add.image(W / 2, H / 2, 'vignette').setDisplaySize(W + 8, H + 8).setDepth(890);
 
         this.createHUD();
         this.createControls();
@@ -108,33 +106,36 @@ export default class GameScene extends Phaser.Scene {
         if (this.textures.exists('glow')) return; // already built (e.g. after restart)
         const g = this.add.graphics();
 
-        // player – little lumberjack facing right
-        g.clear();
-        g.fillStyle(0x5b3a1d, 1); g.fillRect(8, 20, 14, 14);        // body
-        g.fillStyle(0xc1440e, 1); g.fillRect(8, 14, 14, 8);         // shirt
-        g.fillStyle(0xf2c9a0, 1); g.fillRect(11, 4, 10, 10);        // head
-        g.fillStyle(0x3a2a18, 1); g.fillRect(11, 2, 10, 4);         // hat
-        g.fillStyle(0x8a8a8a, 1); g.fillRect(22, 8, 4, 16);         // axe handle
-        g.fillStyle(0xcfd6dd, 1); g.fillRect(22, 6, 7, 5);          // axe head
-        g.generateTexture('player', 30, 36); g.clear();
+        // (player sprite is generated per-character in create via generateAvatarTexture)
 
-        // tree
-        g.fillStyle(0x6b4423, 1); g.fillRect(16, 34, 10, 18);       // trunk
-        g.fillStyle(0x2f7d3a, 1); g.fillCircle(21, 22, 20);
-        g.fillStyle(0x3f9c4c, 1); g.fillCircle(15, 18, 12);
-        g.fillStyle(0x49b259, 1); g.fillCircle(27, 16, 11);
-        g.generateTexture('tree', 44, 54); g.clear();
+        // tree – layered foliage with highlight/shade
+        g.clear();
+        g.fillStyle(0x5a3819, 1); g.fillRect(22, 40, 9, 22);                            // trunk shade
+        g.fillStyle(0x6b4423, 1); g.fillRect(22, 40, 5, 22);                            // trunk
+        g.fillStyle(0x276b32, 1); g.fillCircle(26, 30, 19);                             // base foliage (dark)
+        g.fillStyle(0x2f7d3a, 1); g.fillCircle(26, 24, 19);
+        g.fillStyle(0x3f9c4c, 1); g.fillCircle(19, 19, 12);
+        g.fillStyle(0x57b85f, 1); g.fillCircle(31, 15, 9);                              // highlight
+        g.fillStyle(0x73d178, 1); g.fillCircle(24, 12, 5);                              // top glint
+        g.generateTexture('tree', 52, 66); g.clear();
 
         // stump
-        g.fillStyle(0x6b4423, 1); g.fillRect(4, 6, 16, 12);
+        g.fillStyle(0x5a3819, 1); g.fillRect(4, 8, 16, 11);
+        g.fillStyle(0x6b4423, 1); g.fillRect(4, 6, 16, 4);
         g.fillStyle(0x8a5a30, 1); g.fillEllipse(12, 7, 16, 7);
+        g.fillStyle(0x6b4423, 1); g.fillCircle(12, 7, 2);                               // rings
         g.generateTexture('stump', 24, 20); g.clear();
 
-        // enemy – shadow creature
-        g.fillStyle(0x241633, 1); g.fillCircle(16, 18, 15);
-        g.fillStyle(0x3a2352, 1); g.fillCircle(16, 14, 12);
-        g.fillStyle(0xff3b6b, 1); g.fillCircle(11, 13, 3); g.fillCircle(21, 13, 3);
-        g.generateTexture('enemy', 32, 34); g.clear();
+        // enemy – rounded shadow creature with horns + glowing eyes
+        g.fillStyle(0x000000, 0.16); g.fillEllipse(16, 33, 24, 7);                      // baked shadow
+        g.fillStyle(0x1a0f28, 1); g.fillTriangle(5, 9, 9, -1, 13, 9);                   // horns
+        g.fillTriangle(19, 9, 23, -1, 27, 9);
+        g.fillStyle(0x2a1840, 1); g.fillCircle(16, 19, 14);                             // body
+        g.fillStyle(0x3a2356, 1); g.fillCircle(16, 15, 12);
+        g.fillStyle(0x4a2f6e, 1); g.fillCircle(11, 11, 5);                              // highlight
+        g.fillStyle(0xff3b6b, 1); g.fillCircle(11, 17, 3); g.fillCircle(21, 17, 3);     // eyes
+        g.fillStyle(0xffd0dd, 1); g.fillCircle(10, 16, 1); g.fillCircle(20, 16, 1);     // glints
+        g.generateTexture('enemy', 32, 38); g.clear();
 
         // wood chip particle
         g.fillStyle(0xb07a3c, 1); g.fillRect(0, 0, 6, 6);
@@ -226,9 +227,62 @@ export default class GameScene extends Phaser.Scene {
         ctx.fillStyle = grd;
         ctx.fillRect(0, 0, size, size);
         tex.refresh();
+
+        // soft drop-shadow blob (placed under entities for depth)
+        const sh = this.textures.createCanvas('shadow', 64, 64);
+        const sctx = sh.getContext();
+        const sg = sctx.createRadialGradient(32, 32, 2, 32, 32, 32);
+        sg.addColorStop(0, 'rgba(0,0,0,0.38)');
+        sg.addColorStop(0.7, 'rgba(0,0,0,0.18)');
+        sg.addColorStop(1, 'rgba(0,0,0,0)');
+        sctx.fillStyle = sg;
+        sctx.fillRect(0, 0, 64, 64);
+        sh.refresh();
+
+        // vignette – darkened edges for a cozier, framed look
+        const vg = this.textures.createCanvas('vignette', 256, 256);
+        const vctx = vg.getContext();
+        const vgr = vctx.createRadialGradient(128, 128, 70, 128, 128, 150);
+        vgr.addColorStop(0, 'rgba(8,12,18,0)');
+        vgr.addColorStop(1, 'rgba(8,12,18,0.55)');
+        vctx.fillStyle = vgr;
+        vctx.fillRect(0, 0, 256, 256);
+        vg.refresh();
     }
 
     // ---------------------------------------------------------------- entities
+    createGround() {
+        // grassy gradient base
+        const g = this.add.graphics().setDepth(-10);
+        g.fillGradientStyle(0x4a8a52, 0x4a8a52, 0x35723e, 0x2c5f34, 1);
+        g.fillRect(0, 0, W, H);
+
+        // scattered grass tufts + a few flowers for texture
+        for (let i = 0; i < 90; i++) {
+            const x = Phaser.Math.Between(6, W - 6);
+            const y = Phaser.Math.Between(PLAY_TOP - 10, H - 6);
+            const r = Math.random();
+            if (r < 0.12) {
+                // flower
+                const col = [0xffd166, 0xff8fb0, 0xfff0f5][Phaser.Math.Between(0, 2)];
+                this.add.circle(x, y, 2.5, col).setDepth(-9);
+                this.add.circle(x, y, 1, 0xffd166).setDepth(-9);
+            } else {
+                const shade = r < 0.5 ? 0x3f7d47 : 0x55a05d;
+                this.add.rectangle(x, y, 2, Phaser.Math.Between(3, 6), shade).setDepth(-9).setAlpha(0.7);
+            }
+        }
+
+        // dirt clearing around the campfire
+        this.add.ellipse(FIRE.x, FIRE.y + 6, 150, 110, 0x6b5436, 0.55).setDepth(-8);
+        this.add.ellipse(FIRE.x, FIRE.y + 6, 110, 80, 0x7a5f3c, 0.5).setDepth(-8);
+    }
+
+    addShadow(x, y, w, alpha = 0.9, depth = 0) {
+        return this.add.image(x, y, 'shadow')
+            .setDisplaySize(w, w * 0.42).setAlpha(alpha).setDepth(depth);
+    }
+
     createFire() {
         this.add.ellipse(FIRE.x, FIRE.y + 14, 46, 16, 0x000000, 0.18).setDepth(1);
         this.add.rectangle(FIRE.x - 8, FIRE.y + 8, 26, 7, 0x5b3a1d).setAngle(20).setDepth(2);
@@ -254,10 +308,17 @@ export default class GameScene extends Phaser.Scene {
     }
 
     createTrees() {
-        this.treeSpots().forEach(spot => {
+        this.treeSpots().forEach((spot, i) => {
+            this.addShadow(spot.x, spot.y + 28, 40, 0.5, spot.y - 1);
             const t = this.add.image(spot.x, spot.y, 'tree').setDepth(spot.y);
             t.homeX = spot.x; t.homeY = spot.y;
             t.maxHp = 8; t.hp = 8; t.alive = true;
+            // gentle idle sway (anchored near the base so it looks rooted)
+            t.setAngle(-1.5);
+            this.tweens.add({
+                targets: t, angle: 1.5, duration: 1800 + i * 90, yoyo: true, repeat: -1,
+                ease: 'Sine.inOut', delay: i * 120
+            });
             this.trees.push(t);
         });
     }
@@ -269,6 +330,7 @@ export default class GameScene extends Phaser.Scene {
         // power aura – brightens/grows as the axe gets stronger
         this.playerAura = this.add.image(FIRE.x, FIRE.y + 70, 'glow')
             .setBlendMode(Phaser.BlendModes.ADD).setDepth(499).setAlpha(0).setScale(0.4);
+        this.playerShadow = this.addShadow(FIRE.x, FIRE.y + 88, 30, 0.6, 498);
         this.player = this.add.image(FIRE.x, FIRE.y + 70, 'player').setDepth(500);
         this.walkPhase = 0;
         this.refreshPowerVisuals();
@@ -730,6 +792,7 @@ export default class GameScene extends Phaser.Scene {
         const s = this.add.image(slot.x, slot.y, tex).setDepth(slot.y);
         s.type = type; s.slot = slot; s.dead = false; s.cd = 0;
         if (type === 'gjerde') { s.maxHp = 40; s.hp = 40; }
+        s.shadow = this.addShadow(slot.x, slot.y + 14, 32, 0.45, slot.y - 1);
         s.setScale(0.2);
         this.tweens.add({ targets: s, scale: 1, duration: 300, ease: 'Back.out' });
         this.structures.push(s);
@@ -740,6 +803,7 @@ export default class GameScene extends Phaser.Scene {
         s.dead = true;
         if (s.slot) s.slot.taken = false;
         if (s.type === 'gjerde') this.buildCounts.gjerde--;
+        if (s.shadow) s.shadow.destroy();
         this.burst(s.x, s.y, 'chip', 8);
         this.tweens.add({ targets: s, alpha: 0, scaleY: 0, duration: 200, onComplete: () => s.destroy() });
         this.structures = this.structures.filter(x => x !== s);
@@ -981,9 +1045,10 @@ export default class GameScene extends Phaser.Scene {
             this.player.setRotation(0);
         }
 
-        // power aura + reach ring follow the player
+        // power aura + reach ring + shadow follow the player
         this.playerAura.setPosition(this.player.x, this.player.y).setDepth(this.player.depth - 1);
         this.reachRing.setPosition(this.player.x, this.player.y);
+        this.playerShadow.setPosition(this.player.x, this.player.y + 18).setDepth(this.player.depth - 2);
     }
 
     updateEnemies(dt, time) {
@@ -1110,19 +1175,19 @@ export default class GameScene extends Phaser.Scene {
         if (this.score > hi) localStorage.setItem('emberwood_highscore', String(this.score));
         this.finalBest = Math.max(hi, this.score);
 
-        // update profile + figure out newly-earned permanent perks
-        const p = this.profile;
+        // update character + figure out newly-earned permanent perks
+        const p = this.char;
         p.runs += 1;
         p.bestNight = Math.max(p.bestNight, this.wave);
         const toClaim = Math.max(0, milestonesUnlocked(p.bestNight) - p.claimed);
-        saveProfile(p);
+        saveRoster(this.roster);
 
         if (toClaim > 0) this.claimMilestone(toClaim);
         else this.showGameOver(reason);
     }
 
     claimMilestone(remaining) {
-        const p = this.profile;
+        const p = this.char;
         const milestoneNight = (p.claimed + 1) * 5;
         const picks = Phaser.Utils.Array.Shuffle(PERKS.slice()).slice(0, 3);
 
@@ -1153,7 +1218,7 @@ export default class GameScene extends Phaser.Scene {
             card.on('pointerup', () => {
                 p.perks[perk.key] = (p.perks[perk.key] || 0) + 1;
                 p.claimed += 1;
-                saveProfile(p);
+                saveRoster(this.roster);
                 this.sfx.upgrade();
                 c.destroy();
                 if (remaining - 1 > 0) this.claimMilestone(remaining - 1);
@@ -1163,7 +1228,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     showGameOver(reason) {
-        const p = this.profile;
+        const p = this.char;
         const c = this.add.container(0, 0).setDepth(5000);
         c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.8).setOrigin(0).setInteractive());
         c.add(this.add.text(W / 2, 170, 'SLUTT', {
