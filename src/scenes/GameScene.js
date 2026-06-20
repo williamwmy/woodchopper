@@ -603,14 +603,16 @@ export default class GameScene extends Phaser.Scene {
         this.tweens.add({ targets: t, x: t.homeX + Phaser.Math.Between(-4, 4), duration: 50, yoyo: true });
         this.burst(t.x, t.y - 10, 'chip', 5);
         if (t.hp <= 0) {
-            const yield_ = 3 + this.treeBonus;
+            // sawmills boost wood per tree and speed up regrowth
+            const mills = this.buildCounts.sagbruk;
+            const yield_ = 3 + this.treeBonus + mills;
             this.wood += yield_;
             this.sfx.treeFall();
             this.floatText(t.x, t.y - 20, `+${yield_} 🪵`, '#ffd166');
             t.alive = false;
             t.setTexture('stump').setDepth(t.homeY).setPosition(t.homeX, t.homeY + 16);
-            // regrow
-            this.time.delayedCall(9000, () => this.regrow(t));
+            const regrowDelay = 9000 * Math.pow(0.75, mills);   // ~25% faster each
+            this.time.delayedCall(regrowDelay, () => this.regrow(t));
             this.updateHUD();
         }
     }
@@ -811,7 +813,7 @@ export default class GameScene extends Phaser.Scene {
             { key: 'bombekaster', icon: '💣', name: 'Bombekaster', desc: 'Splintskade på klynger av fiender', base: 52 },
             { key: 'piggfelle', icon: '🪤', name: 'Piggfelle', desc: 'Skader alle fiender rundt seg', base: 18 },
             { key: 'hus', icon: '🏠', name: 'Hytte', desc: 'Heler deg sakte (+3 liv/s)', base: 38 },
-            { key: 'sagbruk', icon: '🪚', name: 'Sagbruk', desc: '+6 ved hvert daggry', base: 34 }
+            { key: 'sagbruk', icon: '🪚', name: 'Sagbruk', desc: '+1 ved per tre & raskere gjenvekst', base: 30 }
         ];
     }
 
@@ -1038,12 +1040,6 @@ export default class GameScene extends Phaser.Scene {
         this.enemies = [];
         this.score += 50 * survived;
         if (this.dawnHeal > 0) this.hp = Math.min(this.maxHp, this.hp + this.dawnHeal);
-        // sawmill wood income
-        const mills = this.buildCounts.sagbruk;
-        if (mills > 0) {
-            this.wood += mills * 6;
-            this.floatText(FIRE.x, FIRE.y - 50, `🪚 +${mills * 6} 🪵`, '#9fd0ff');
-        }
         this.sfx.dayStart();
         // reward: choose one of three random upgrades
         this.offerUpgrades(`☀  Natt ${survived} overlevd!`);

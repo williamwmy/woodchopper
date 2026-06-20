@@ -81,7 +81,8 @@ upgrades, shop/building, phases (day/night), and `update()`.
   boots → dust trails; bigger fire → glow scales with `fuelMax`.
 - **Shop/building** (`shopItems`, `buyStructure`, `spawnStructure`): fences
   (block enemies), watchtowers (auto-shoot), ice cannons (slow), mortars (AoE
-  splash), spike traps (passive AoE), huts (HP regen), sawmills (wood income).
+  splash), spike traps (passive AoE), huts (HP regen), sawmills (each adds +1
+  wood per felled tree and speeds tree regrowth ~25%).
   Placed into fixed `slots` (radial rings relative to FIRE, see `createSlots`).
   Active buildings share `updateStructures()` + `GameScene.SPEC` (cd/range/dmg/
   slow/splash/trap). Day only.
