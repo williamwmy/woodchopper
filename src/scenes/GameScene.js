@@ -175,6 +175,33 @@ export default class GameScene extends Phaser.Scene {
         g.fillStyle(0xd8cdb0, 1); g.fillCircle(4, 4, 4);
         g.generateTexture('dust', 8, 8); g.clear();
 
+        // ice cannon – slows enemies
+        g.fillStyle(0x4a6b78, 1); g.fillRect(4, 18, 24, 18);       // base
+        g.fillStyle(0x6fb7d4, 1); g.fillRect(10, 8, 14, 14);       // body
+        g.fillStyle(0xbfeeff, 1); g.fillCircle(17, 13, 6);         // ice orb
+        g.fillStyle(0x9fe6ff, 1); g.fillRect(22, 11, 8, 5);        // barrel
+        g.generateTexture('icecannon', 34, 38); g.clear();
+
+        // mortar – lobs explosive shells
+        g.fillStyle(0x3a3a44, 1); g.fillRect(4, 22, 24, 14);       // base
+        g.fillStyle(0x55555f, 1); g.fillRect(9, 6, 12, 22);        // tube
+        g.fillStyle(0x2a2a30, 1); g.fillEllipse(15, 7, 12, 6);     // muzzle
+        g.generateTexture('mortar', 32, 38); g.clear();
+
+        // spike trap – damages nearby enemies
+        g.fillStyle(0x3a2a18, 1); g.fillRect(2, 18, 30, 8);        // pad
+        g.fillStyle(0xb8c0c8, 1);
+        g.fillTriangle(4, 18, 10, 2, 16, 18);
+        g.fillTriangle(14, 18, 20, 4, 26, 18);
+        g.fillTriangle(22, 18, 28, 6, 32, 18);
+        g.generateTexture('spiketrap', 34, 26); g.clear();
+
+        // ice bolt + mortar shell projectiles
+        g.fillStyle(0xbfeeff, 1); g.fillCircle(4, 4, 4);
+        g.generateTexture('icebolt', 8, 8); g.clear();
+        g.fillStyle(0x2a2a30, 1); g.fillCircle(5, 5, 5);
+        g.generateTexture('shell', 10, 10); g.clear();
+
         g.destroy();
 
         // radial glow (canvas gradient)
@@ -272,26 +299,27 @@ export default class GameScene extends Phaser.Scene {
     }
 
     createSlots() {
-        // Fence ring around the fire
-        const fence = [];
-        for (let i = 0; i < 12; i++) {
-            const a = (i / 12) * Math.PI * 2;
-            fence.push({ x: FIRE.x + Math.cos(a) * 70, y: FIRE.y + Math.sin(a) * 70, taken: false });
-        }
-        // Towers on diagonals, a bit further out (relative to the fire)
-        const taarn = [
-            { x: FIRE.x - 81, y: FIRE.y - 81 }, { x: FIRE.x + 81, y: FIRE.y - 81 },
-            { x: FIRE.x - 81, y: FIRE.y + 81 }, { x: FIRE.x + 81, y: FIRE.y + 81 }
-        ].map(p => ({ ...p, taken: false }));
-        const hus = [
-            { x: Math.max(44, FIRE.x - 144), y: FIRE.y },
-            { x: Math.min(W - 44, FIRE.x + 144), y: FIRE.y }
-        ].map(p => ({ ...p, taken: false }));
-        const sagbruk = [
-            { x: FIRE.x, y: Math.max(PLAY_TOP + 30, FIRE.y - 150) },
-            { x: FIRE.x, y: Math.min(PLAY_BOTTOM - 20, FIRE.y + 150) }
-        ].map(p => ({ ...p, taken: false }));
-        this.slots = { gjerde: fence, taarn, hus, sagbruk };
+        // build slots in rings around the fire, clamped to the play area
+        const at = (deg, r) => {
+            const a = Phaser.Math.DegToRad(deg);
+            return {
+                x: Phaser.Math.Clamp(FIRE.x + Math.cos(a) * r, 26, W - 26),
+                y: Phaser.Math.Clamp(FIRE.y + Math.sin(a) * r, PLAY_TOP + 26, PLAY_BOTTOM - 12),
+                taken: false
+            };
+        };
+        const ring = (r, count, off = 0) =>
+            Array.from({ length: count }, (_, i) => at(off + i * 360 / count, r));
+
+        this.slots = {
+            gjerde: ring(70, 12),                         // inner palisade
+            piggfelle: ring(46, 4, 45),                   // traps just inside the wall
+            taarn: [at(45, 122), at(135, 122), at(225, 122), at(315, 122)],
+            iskanon: [at(180, 122), at(0, 122)],          // left / right
+            bombekaster: [at(270, 120), at(90, 120)],     // top / bottom
+            hus: [at(208, 168), at(332, 168)],            // outer lower corners
+            sagbruk: [at(28, 168), at(152, 168)]          // outer upper corners
+        };
     }
 
     // ---------------------------------------------------------------- HUD
@@ -532,50 +560,58 @@ export default class GameScene extends Phaser.Scene {
 
         const c = this.add.container(0, 0).setDepth(4000);
         c.add(this.add.rectangle(0, 0, W, H, 0x05080d, 0.82).setOrigin(0).setInteractive());
-        c.add(this.add.text(W / 2, 110, headline, {
+
+        const title = this.add.text(W / 2, 110, headline, {
             fontSize: '24px', fontFamily: 'Arial', fontStyle: 'bold',
             color: '#ffd166', align: 'center'
-        }).setOrigin(0.5));
-        const hint = this.add.text(W / 2, 150, 'Gjør deg klar…', {
+        }).setOrigin(0.5).setScale(0.7).setAlpha(0);
+        c.add(title);
+        this.tweens.add({ targets: title, scale: 1, alpha: 1, duration: 320, ease: 'Back.out' });
+
+        const hint = this.add.text(W / 2, 150, 'Velg én forsterkning', {
             fontSize: '15px', fontFamily: 'Arial', color: '#cfe3d4'
-        }).setOrigin(0.5);
+        }).setOrigin(0.5).setAlpha(0);
         c.add(hint);
 
-        const cards = [];
+        const select = (it) => {
+            it.apply();
+            this.upgLevels[it.key] = (this.upgLevels[it.key] || 0) + 1;
+            this.sfx.upgrade();
+            this.refreshPowerVisuals(it.key);
+            this.floatText(this.player.x, this.player.y - 30, it.name, '#ffd166');
+            c.destroy();
+            this.menuOpen = false;
+            this.updateHUD();
+        };
+
         picks.forEach((it, i) => {
             const y = 235 + i * 125;
-            const card = this.add.rectangle(W / 2, y, 320, 108, 0x1d2e18)
-                .setStrokeStyle(3, 0x33402c).setAlpha(0.5);
-            c.add(card);
-            c.add(this.add.text(W / 2, y - 28, it.icon, { fontSize: '38px' }).setOrigin(0.5));
-            c.add(this.add.text(W / 2, y + 14, it.name, {
+            // each card is its own container so it can animate as a unit
+            const cardC = this.add.container(W / 2, y).setScale(0.5).setAlpha(0);
+            const rect = this.add.rectangle(0, 0, 320, 108, 0x1d2e18).setStrokeStyle(3, 0x4a6b3a);
+            cardC.add(rect);
+            cardC.add(this.add.text(0, -28, it.icon, { fontSize: '38px' }).setOrigin(0.5));
+            cardC.add(this.add.text(0, 14, it.name, {
                 fontSize: '19px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
             }).setOrigin(0.5));
-            c.add(this.add.text(W / 2, y + 38, it.desc, {
+            cardC.add(this.add.text(0, 38, it.desc, {
                 fontSize: '13px', fontFamily: 'Arial', color: '#bcd0c0'
             }).setOrigin(0.5));
-            cards.push({ card, it });
-        });
+            c.add(cardC);
 
-        // delay before cards are tappable, so a lingering touch (from holding
-        // the swing button) can't accidentally pick one
-        this.time.delayedCall(550, () => {
-            if (!c.active) return;
-            hint.setText('Velg én forsterkning');
-            cards.forEach(({ card, it }) => {
-                card.setAlpha(1).setStrokeStyle(3, 0x4a6b3a).setInteractive({ useHandCursor: true });
-                card.on('pointerover', () => card.setStrokeStyle(3, 0xffd166));
-                card.on('pointerout', () => card.setStrokeStyle(3, 0x4a6b3a));
-                card.on('pointerup', () => {
-                    it.apply();
-                    this.upgLevels[it.key] = (this.upgLevels[it.key] || 0) + 1;
-                    this.sfx.upgrade();
-                    this.refreshPowerVisuals(it.key);
-                    this.floatText(this.player.x, this.player.y - 30, it.name, '#ffd166');
-                    c.destroy();
-                    this.menuOpen = false;
-                    this.updateHUD();
-                });
+            // staggered pop-in; card becomes tappable only once it lands —
+            // this doubles as the "anti-misclick" delay
+            this.tweens.add({
+                targets: cardC, scale: 1, alpha: 1, duration: 300, delay: 180 + i * 150, ease: 'Back.out',
+                onComplete: () => {
+                    if (!cardC.active) return;
+                    if (i === picks.length - 1) this.tweens.add({ targets: hint, alpha: 1, duration: 200 });
+                    rect.setInteractive({ useHandCursor: true });
+                    rect.on('pointerover', () => rect.setStrokeStyle(3, 0xffd166));
+                    rect.on('pointerout', () => rect.setStrokeStyle(3, 0x4a6b3a));
+                    rect.on('pointerdown', () => this.tweens.add({ targets: cardC, scale: 0.94, duration: 80, yoyo: true }));
+                    rect.on('pointerup', () => select(it));
+                }
             });
         });
 
@@ -587,6 +623,9 @@ export default class GameScene extends Phaser.Scene {
         return [
             { key: 'gjerde', icon: '🚧', name: 'Gjerde', desc: 'Stopper fiender på vei mot bålet', base: 8 },
             { key: 'taarn', icon: '🗼', name: 'Vakttårn', desc: 'Skyter automatisk på fiender', base: 28 },
+            { key: 'iskanon', icon: '🧊', name: 'Iskanon', desc: 'Fryser fiender så de går saktere', base: 40 },
+            { key: 'bombekaster', icon: '💣', name: 'Bombekaster', desc: 'Splintskade på klynger av fiender', base: 52 },
+            { key: 'piggfelle', icon: '🪤', name: 'Piggfelle', desc: 'Skader alle fiender rundt seg', base: 18 },
             { key: 'hus', icon: '🏠', name: 'Hytte', desc: 'Heler deg sakte (+3 liv/s)', base: 38 },
             { key: 'sagbruk', icon: '🪚', name: 'Sagbruk', desc: '+6 ved hvert daggry', base: 34 }
         ];
@@ -616,36 +655,42 @@ export default class GameScene extends Phaser.Scene {
             fontSize: '16px', fontFamily: 'Arial', color: '#ffffff'
         }).setOrigin(0.5));
 
-        this.shopItems().forEach((it, i) => {
-            const y = 160 + i * 100;
+        // lay rows out dynamically so any number of items fits the screen
+        const items = this.shopItems();
+        const top = 128, bottomPad = 96;
+        const spacing = Math.min(96, (H - bottomPad - top) / items.length);
+        const rowH = Math.min(84, spacing - 8);
+
+        items.forEach((it, i) => {
+            const y = top + spacing * i + spacing / 2;
             const cost = this.shopCost(it);
             const max = this.slots[it.key].length;
             const built = this.buildCounts[it.key];
             const full = built >= max;
             const afford = this.wood >= cost && !full;
 
-            const row = this.add.rectangle(W / 2, y, 340, 88, 0x1d2e18)
+            const row = this.add.rectangle(W / 2, y, 344, rowH, 0x1d2e18)
                 .setStrokeStyle(2, afford ? 0x4a6b3a : 0x33402c)
                 .setInteractive({ useHandCursor: true });
             c.add(row);
-            c.add(this.add.text(42, y, it.icon, { fontSize: '32px' }).setOrigin(0.5));
-            c.add(this.add.text(72, y - 22, `${it.name}  (${built}/${max})`, {
-                fontSize: '17px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+            c.add(this.add.text(40, y, it.icon, { fontSize: '30px' }).setOrigin(0.5));
+            c.add(this.add.text(68, y - 14, `${it.name}  (${built}/${max})`, {
+                fontSize: '16px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
             }).setOrigin(0, 0.5));
-            c.add(this.add.text(72, y + 2, it.desc, {
-                fontSize: '12px', fontFamily: 'Arial', color: '#bcd0c0', wordWrap: { width: 250 }
+            c.add(this.add.text(68, y + 9, it.desc, {
+                fontSize: '11px', fontFamily: 'Arial', color: '#bcd0c0', wordWrap: { width: 240 }
             }).setOrigin(0, 0.5));
-            c.add(this.add.text(W / 2 + 152, y, full ? 'FULLT' : `🪵 ${cost}`, {
+            c.add(this.add.text(W / 2 + 158, y, full ? 'FULLT' : `🪵 ${cost}`, {
                 fontSize: '15px', fontFamily: 'Arial', fontStyle: 'bold',
                 color: full ? '#888' : (afford ? '#ffd166' : '#ff6b6b')
             }).setOrigin(1, 0.5));
             row.on('pointerup', () => this.buyStructure(it));
         });
 
-        const close = this.add.rectangle(W / 2, H - 70, 220, 56, 0xc1440e)
+        const close = this.add.rectangle(W / 2, H - 52, 220, 52, 0xc1440e)
             .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
         c.add(close);
-        c.add(this.add.text(W / 2, H - 70, 'FERDIG', {
+        c.add(this.add.text(W / 2, H - 52, 'FERDIG', {
             fontSize: '22px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
         }).setOrigin(0.5));
         close.on('pointerup', () => { c.destroy(); this.shopContainer = null; this.menuOpen = false; });
@@ -667,11 +712,13 @@ export default class GameScene extends Phaser.Scene {
     }
 
     spawnStructure(type, slot) {
-        const tex = { gjerde: 'fence', taarn: 'tower', hus: 'house', sagbruk: 'sawmill' }[type];
+        const tex = {
+            gjerde: 'fence', taarn: 'tower', hus: 'house', sagbruk: 'sawmill',
+            iskanon: 'icecannon', bombekaster: 'mortar', piggfelle: 'spiketrap'
+        }[type];
         const s = this.add.image(slot.x, slot.y, tex).setDepth(slot.y);
-        s.type = type; s.slot = slot; s.dead = false;
+        s.type = type; s.slot = slot; s.dead = false; s.cd = 0;
         if (type === 'gjerde') { s.maxHp = 40; s.hp = 40; }
-        if (type === 'taarn') { s.cd = 0; }
         s.setScale(0.2);
         this.tweens.add({ targets: s, scale: 1, duration: 300, ease: 'Back.out' });
         this.structures.push(s);
@@ -687,39 +734,79 @@ export default class GameScene extends Phaser.Scene {
         this.structures = this.structures.filter(x => x !== s);
     }
 
-    updateTowers(time) {
+    // stats per active building type
+    static SPEC = {
+        taarn:       { cd: 850,  range: 130, dmg: 12, tex: 'bolt' },
+        iskanon:     { cd: 1100, range: 125, dmg: 5,  tex: 'icebolt', slow: 0.45, slowMs: 2500 },
+        bombekaster: { cd: 1600, range: 155, dmg: 14, tex: 'shell', splash: 50, arc: true },
+        piggfelle:   { cd: 700,  range: 40,  dmg: 8,  trap: true }
+    };
+
+    updateStructures(time) {
         this.structures.forEach(s => {
-            if (s.type !== 'taarn' || s.dead) return;
-            if (time < (s.cd || 0)) return;
-            // nearest living enemy in range
-            let target = null, best = 130;
+            if (s.dead) return;
+            const spec = GameScene.SPEC[s.type];
+            if (!spec || time < (s.cd || 0)) return;
+
+            if (spec.trap) {
+                // damage everything standing on the trap
+                let hit = false;
+                this.enemies.forEach(e => {
+                    if (!e.dead && Phaser.Math.Distance.Between(s.x, s.y, e.x, e.y) < spec.range) {
+                        this.hurtEnemy(e, spec.dmg); hit = true;
+                    }
+                });
+                if (hit) { s.cd = time + spec.cd; this.burst(s.x, s.y, 'chip', 5); }
+                return;
+            }
+
+            // ranged: target nearest living enemy in range
+            let target = null, best = spec.range;
             this.enemies.forEach(e => {
                 if (e.dead) return;
                 const d = Phaser.Math.Distance.Between(s.x, s.y, e.x, e.y);
                 if (d < best) { best = d; target = e; }
             });
-            if (target) {
-                s.cd = time + 850;
-                this.fireBolt(s, target);
+            if (target) { s.cd = time + spec.cd; this.fireProjectile(s, target, spec); }
+        });
+    }
+
+    fireProjectile(src, enemy, spec) {
+        const p = this.add.image(src.x, src.y - 12, spec.tex).setDepth(1300);
+        this.sfx.towerShoot();
+        this.tweens.add({
+            targets: p, x: enemy.x, y: enemy.y, duration: spec.arc ? 340 : 180,
+            scale: spec.arc ? 1.4 : 1,
+            onComplete: () => {
+                const ix = p.x, iy = p.y;
+                p.destroy();
+                if (spec.splash) {
+                    // explosion: damage the whole cluster
+                    this.burst(ix, iy, 'ember', 12);
+                    this.cameras.main.shake(90, 0.005);
+                    this.enemies.forEach(e => {
+                        if (!e.dead && Phaser.Math.Distance.Between(ix, iy, e.x, e.y) < spec.splash) {
+                            this.hurtEnemy(e, spec.dmg);
+                        }
+                    });
+                } else if (enemy.active && !enemy.dead) {
+                    this.hurtEnemy(enemy, spec.dmg);
+                    if (spec.slow) {
+                        enemy.slowUntil = this.time.now + spec.slowMs;
+                        enemy.slowFactor = spec.slow;
+                        enemy.setTint(0x9fe6ff);
+                        this.burst(enemy.x, enemy.y, 'icebolt', 4);
+                    }
+                }
             }
         });
     }
 
-    fireBolt(tower, enemy) {
-        const bolt = this.add.image(tower.x, tower.y - 12, 'bolt').setDepth(1300);
-        this.sfx.towerShoot();
-        this.tweens.add({
-            targets: bolt, x: enemy.x, y: enemy.y, duration: 180,
-            onComplete: () => {
-                bolt.destroy();
-                if (enemy.active && !enemy.dead) {
-                    enemy.hp -= 12;
-                    enemy.setTintFill(0xfff2a0);
-                    this.time.delayedCall(60, () => { if (enemy.active) enemy.clearTint(); });
-                    if (enemy.hp <= 0) this.killEnemy(enemy);
-                }
-            }
-        });
+    // damage from buildings (no knockback / flash, unlike the player's swing)
+    hurtEnemy(e, dmg) {
+        if (e.dead) return;
+        e.hp -= dmg;
+        if (e.hp <= 0) this.killEnemy(e);
     }
 
     // ---------------------------------------------------------------- phases
@@ -783,6 +870,8 @@ export default class GameScene extends Phaser.Scene {
         e.dmg = 4 + (n - 1) * 2;
         e.hitCd = 0;
         e.dead = false;
+        e.slowUntil = 0;
+        e.slowFactor = 1;
         e.setScale(0).setAlpha(0);
         this.tweens.add({ targets: e, scale: 1, alpha: 1, duration: 250 });
         this.enemies.push(e);
@@ -803,7 +892,7 @@ export default class GameScene extends Phaser.Scene {
         // hold swing button (or space) to keep swinging automatically
         if (this.swingHeld || this.keys.SPACE.isDown) this.swing();
         this.updateEnemies(dt, time);
-        this.updateTowers(time);
+        this.updateStructures(time);
 
         // house passive healing
         if (this.houseRegen > 0 && this.hp < this.maxHp) {
@@ -889,6 +978,12 @@ export default class GameScene extends Phaser.Scene {
     updateEnemies(dt, time) {
         this.enemies.forEach(e => {
             if (e.dead) return;
+
+            // ice-cannon slow
+            let speed = e.speed;
+            if (e.slowUntil && time < e.slowUntil) { speed *= e.slowFactor; e.setTint(0x9fe6ff); }
+            else if (e.slowUntil) { e.slowUntil = 0; e.clearTint(); }
+
             const toFire = Phaser.Math.Distance.Between(e.x, e.y, FIRE.x, FIRE.y);
             const toPlayer = Phaser.Math.Distance.Between(e.x, e.y, this.player.x, this.player.y);
 
@@ -914,8 +1009,8 @@ export default class GameScene extends Phaser.Scene {
                 let tx = FIRE.x, ty = FIRE.y;
                 if (toPlayer < 60) { tx = this.player.x; ty = this.player.y; }
                 const a = Phaser.Math.Angle.Between(e.x, e.y, tx, ty);
-                e.x += Math.cos(a) * e.speed * dt;
-                e.y += Math.sin(a) * e.speed * dt;
+                e.x += Math.cos(a) * speed * dt;
+                e.y += Math.sin(a) * speed * dt;
                 e.setDepth(e.y);
             } else if (time > e.hitCd) {
                 // gnawing the fire
