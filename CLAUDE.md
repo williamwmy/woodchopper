@@ -101,10 +101,11 @@ upgrades, shop/building, phases (day/night), and `update()`.
   `generateAvatarTexture(scene, key, look)` draws a character to a texture — used
   for the in-game `player` sprite (regenerated each run from the active character)
   and for GUI previews/portraits. `CharacterScene.js` is the GUI (roster / create
-  form with live preview / character sheet). Reaching a night milestone (every 5)
-  grants a permanent perk choice at game over (`claimMilestone`); perks are *tiny*
-  (≈1/6 of an in-run upgrade) and applied to base stats at the top of
-  GameScene `create()`. Migrates the old `emberwood_profile` on first load.
+  form with live preview / character sheet). At game over you pick a permanent
+  perk for EVERY milestone night reached *that run* (floor(night/5), so reaching
+  night 12 grants 2) via `claimMilestone(index, total)` — repeatable each run,
+  not once-ever. Perks are *tiny* (≈1/6 of an in-run upgrade) and applied to base
+  stats at the top of GameScene `create()`. Migrates `emberwood_profile` on first load.
 
 ## Tuning knobs (where to balance)
 

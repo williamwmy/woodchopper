@@ -131,7 +131,7 @@ export default class CharacterScene extends Phaser.Scene {
         });
 
         this.layer.add(this.add.text(W / 2, 452,
-            `Neste milepæl: natt ${nextMilestone(ch.claimed)}`, {
+            'Permanent boost for hver 5. natt du når', {
             fontSize: '13px', fontFamily: 'Arial', color: '#bcd0c0'
         }).setOrigin(0.5));
 

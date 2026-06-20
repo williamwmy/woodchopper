@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { SoundFX } from '../utils/SoundFX.js';
-import { loadRoster, saveRoster, getActive, milestonesUnlocked, PERKS, generateAvatarTexture } from '../utils/Characters.js';
+import { loadRoster, saveRoster, getActive, milestonesUnlocked, perkCount, PERKS, generateAvatarTexture } from '../utils/Characters.js';
 
 // W/H/FIRE/PLAY_BOTTOM are recomputed from the real canvas size in create()
 let W = 400;
@@ -439,8 +439,8 @@ export default class GameScene extends Phaser.Scene {
             fontSize: '15px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
         }).setOrigin(0.5, 0).setDepth(2001);
 
-        // pause / menu button — drawn glyph (crisper than an emoji)
-        const px = W - 28, py = 70;
+        // pause / menu button — drawn glyph, in the empty lower-right of the HUD
+        const px = W - 28, py = 94;
         this.pauseBtn = this.add.rectangle(px, py, 34, 30, 0x1d2e18, 0.62)
             .setStrokeStyle(2, 0xffd166).setDepth(2004).setInteractive({ useHandCursor: true });
         this.add.rectangle(px - 5, py, 5, 14, 0xffd166).setDepth(2005);
@@ -1330,26 +1330,27 @@ export default class GameScene extends Phaser.Scene {
         if (this.score > hi) localStorage.setItem('emberwood_highscore', String(this.score));
         this.finalBest = Math.max(hi, this.score);
 
-        // update character + figure out newly-earned permanent perks
+        // update character; award a permanent perk for EACH milestone night
+        // reached THIS run (5, 10, 15, …) — so every run that gets far rewards you
         const p = this.char;
         p.runs += 1;
         p.bestNight = Math.max(p.bestNight, this.wave);
-        const toClaim = Math.max(0, milestonesUnlocked(p.bestNight) - p.claimed);
+        const toClaim = milestonesUnlocked(this.wave);   // floor(night / 5)
         saveRoster(this.roster);
 
-        if (toClaim > 0) this.claimMilestone(toClaim);
+        if (toClaim > 0) this.claimMilestone(1, toClaim);
         else this.showGameOver(reason);
     }
 
-    claimMilestone(remaining) {
+    claimMilestone(index, total) {
         const p = this.char;
-        const milestoneNight = (p.claimed + 1) * 5;
+        const milestoneNight = index * 5;
         const picks = Phaser.Utils.Array.Shuffle(PERKS.slice()).slice(0, 3);
 
         const c = this.add.container(0, 0).setDepth(5200);
         c.add(this.add.rectangle(0, 0, W, H, 0x05080d, 0.9).setOrigin(0).setInteractive());
-        c.add(this.add.text(W / 2, 120, '🏆 MILEPÆL!', {
-            fontSize: '30px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
+        c.add(this.add.text(W / 2, 120, `🏆 MILEPÆL ${index}/${total}`, {
+            fontSize: '28px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
         }).setOrigin(0.5));
         c.add(this.add.text(W / 2, 158, `Du nådde natt ${milestoneNight}\nVelg en permanent forsterkning`, {
             fontSize: '15px', fontFamily: 'Arial', color: '#cfe3d4', align: 'center', lineSpacing: 6
@@ -1376,7 +1377,7 @@ export default class GameScene extends Phaser.Scene {
                 saveRoster(this.roster);
                 this.sfx.upgrade();
                 c.destroy();
-                if (remaining - 1 > 0) this.claimMilestone(remaining - 1);
+                if (index < total) this.claimMilestone(index + 1, total);
                 else this.showGameOver(this.gameOverReason || 'Spillet er slutt');
             });
         });
@@ -1396,9 +1397,9 @@ export default class GameScene extends Phaser.Scene {
             `Du nådde natt ${this.wave}\nPoeng: ${this.score}\nBeste: ${this.finalBest}`, {
             fontSize: '20px', fontFamily: 'Arial', color: '#ffffff', align: 'center', lineSpacing: 8
         }).setOrigin(0.5));
-        const nextAt = (p.claimed + 1) * 5;
+        const nextAt = (milestonesUnlocked(this.wave) + 1) * 5;
         c.add(this.add.text(W / 2, 372,
-            `👤 ${p.name} · ${p.runs} runder\nNeste milepæl: natt ${nextAt}`, {
+            `👤 ${p.name} · ${p.runs} runder · ${perkCount(p)} boosts\nNeste belønning: nå natt ${nextAt}`, {
             fontSize: '13px', fontFamily: 'Arial', color: '#9fd0ff', align: 'center', lineSpacing: 5
         }).setOrigin(0.5));
 
