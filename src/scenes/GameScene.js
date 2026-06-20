@@ -439,10 +439,14 @@ export default class GameScene extends Phaser.Scene {
             fontSize: '15px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
         }).setOrigin(0.5, 0).setDepth(2001);
 
-        // pause / menu button
-        this.pauseBtn = this.add.circle(W - 24, 96, 16, 0x3a4049, 0.9)
+        // pause / menu button — drawn glyph (crisper than an emoji)
+        const px = W - 28, py = 70;
+        this.pauseBtn = this.add.rectangle(px, py, 34, 30, 0x1d2e18, 0.62)
             .setStrokeStyle(2, 0xffd166).setDepth(2004).setInteractive({ useHandCursor: true });
-        this.add.text(W - 24, 95, '⏸', { fontSize: '16px' }).setOrigin(0.5).setDepth(2005);
+        this.add.rectangle(px - 5, py, 5, 14, 0xffd166).setDepth(2005);
+        this.add.rectangle(px + 5, py, 5, 14, 0xffd166).setDepth(2005);
+        this.pauseBtn.on('pointerover', () => this.pauseBtn.setScale(1.08));
+        this.pauseBtn.on('pointerout', () => this.pauseBtn.setScale(1));
         this.pauseBtn.on('pointerup', () => this.openPause());
 
         // Health bar
@@ -469,28 +473,28 @@ export default class GameScene extends Phaser.Scene {
         this.swingHeld = false;
 
         // Swing button — hold to auto-swing (no repeated tapping)
-        this.swingBtn = this.add.circle(swingX, swingY, 56, 0xc1440e, 0.92)
+        this.swingBtn = this.add.circle(swingX, swingY, 56, 0xc1440e, 0.6)
             .setStrokeStyle(4, 0xffd166).setScrollFactor(0).setDepth(3000)
             .setInteractive({ useHandCursor: true });
-        this.add.text(swingX, swingY, '🪓', { fontSize: '42px' }).setOrigin(0.5).setDepth(3001);
+        this.add.text(swingX, swingY, '🪓', { fontSize: '42px' }).setOrigin(0.5).setDepth(3001).setAlpha(0.92);
         this.swingBtn.on('pointerdown', () => { this.swingBtn.setScale(0.92); this.swingHeld = true; this.swing(); });
         this.swingBtn.on('pointerup', () => { this.swingBtn.setScale(1); this.swingHeld = false; });
         this.swingBtn.on('pointerout', () => { this.swingBtn.setScale(1); this.swingHeld = false; });
 
         // Feed button
-        this.feedBtn = this.add.circle(feedX, feedY, 34, 0x2a6b3a, 0.9)
+        this.feedBtn = this.add.circle(feedX, feedY, 34, 0x2a6b3a, 0.58)
             .setStrokeStyle(3, 0xffd166).setScrollFactor(0).setDepth(3000)
             .setInteractive({ useHandCursor: true });
-        this.add.text(feedX, feedY, '🔥', { fontSize: '24px' }).setOrigin(0.5).setDepth(3001);
+        this.add.text(feedX, feedY, '🔥', { fontSize: '24px' }).setOrigin(0.5).setDepth(3001).setAlpha(0.92);
         this.feedBtn.on('pointerdown', () => { this.feedBtn.setScale(0.9); this.feedFire(); });
         this.feedBtn.on('pointerup', () => this.feedBtn.setScale(1));
         this.feedBtn.on('pointerout', () => this.feedBtn.setScale(1));
 
         // Shop button (day only)
-        this.shopBtn = this.add.circle(shopX, shopY, 30, 0x4a6b3a, 0.9)
+        this.shopBtn = this.add.circle(shopX, shopY, 30, 0x4a6b3a, 0.58)
             .setStrokeStyle(3, 0xffd166).setScrollFactor(0).setDepth(3000)
             .setInteractive({ useHandCursor: true });
-        this.shopBtnIcon = this.add.text(shopX, shopY, '🛒', { fontSize: '22px' }).setOrigin(0.5).setDepth(3001);
+        this.shopBtnIcon = this.add.text(shopX, shopY, '🛒', { fontSize: '22px' }).setOrigin(0.5).setDepth(3001).setAlpha(0.92);
         this.shopBtn.on('pointerdown', () => { this.shopBtn.setScale(0.9); this.openShop(); });
         this.shopBtn.on('pointerup', () => this.shopBtn.setScale(1));
         this.shopBtn.on('pointerout', () => this.shopBtn.setScale(1));
@@ -676,24 +680,59 @@ export default class GameScene extends Phaser.Scene {
         if (this.menuOpen || this.gameIsOver) return;
         this.menuOpen = true;
         this.swingHeld = false;
-        const c = this.add.container(0, 0).setDepth(4500);
-        c.add(this.add.rectangle(0, 0, W, H, 0x05080d, 0.82).setOrigin(0).setInteractive());
-        c.add(this.add.text(W / 2, H / 2 - 150, '⏸ PAUSE', {
-            fontSize: '34px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
-        }).setOrigin(0.5));
+        this.pauseC = this.add.container(0, 0).setDepth(4500);
+        this.buildPauseMenu();
+    }
 
-        const mk = (dy, label, color, fn) => {
-            const r = this.add.rectangle(W / 2, H / 2 + dy, 240, 56, color)
-                .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
-            c.add(r);
-            c.add(this.add.text(W / 2, H / 2 + dy, label, {
-                fontSize: '20px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+    // rebuild the pause overlay contents (fresh background each time)
+    pausePanel(build) {
+        this.pauseC.removeAll(true);
+        this.pauseC.add(this.add.rectangle(0, 0, W, H, 0x05080d, 0.85).setOrigin(0).setInteractive());
+        build();
+    }
+
+    pauseButton(dy, label, color, fn) {
+        const r = this.add.rectangle(W / 2, H / 2 + dy, 250, 54, color)
+            .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
+        const t = this.add.text(W / 2, H / 2 + dy, label, {
+            fontSize: '19px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+        }).setOrigin(0.5);
+        r.on('pointerover', () => r.setScale(1.03));
+        r.on('pointerout', () => r.setScale(1));
+        r.on('pointerup', fn);
+        this.pauseC.add(r); this.pauseC.add(t);
+    }
+
+    buildPauseMenu() {
+        this.pausePanel(() => {
+            this.pauseC.add(this.add.text(W / 2, H / 2 - 140, 'PAUSE', {
+                fontSize: '36px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
             }).setOrigin(0.5));
-            r.on('pointerup', fn);
-        };
-        mk(-70, '▶ FORTSETT', 0xc1440e, () => { c.destroy(); this.menuOpen = false; });
-        mk(0, '↻ START PÅ NYTT', 0x2a6b3a, () => this.scene.restart());
-        mk(70, '🏠 HOVEDMENY', 0x3a4049, () => this.scene.start('MenuScene'));
+            this.pauseButton(-72, '▶  FORTSETT', 0xc1440e, () => this.closePause());
+            this.pauseButton(0, '↻  START PÅ NYTT', 0x2a6b3a,
+                () => this.confirmPause('Starte runden på nytt?\nFremgangen i denne runden går tapt.', () => this.scene.restart()));
+            this.pauseButton(72, '🏠  HOVEDMENY', 0x3a4049,
+                () => this.confirmPause('Gå til hovedmenyen?\nDenne runden går tapt (rekorder lagres bare ved tap).', () => this.scene.start('MenuScene')));
+        });
+    }
+
+    confirmPause(message, onYes) {
+        this.pausePanel(() => {
+            this.pauseC.add(this.add.text(W / 2, H / 2 - 110, '⚠ ER DU SIKKER?', {
+                fontSize: '24px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ff8c42'
+            }).setOrigin(0.5));
+            this.pauseC.add(this.add.text(W / 2, H / 2 - 60, message, {
+                fontSize: '15px', fontFamily: 'Arial', color: '#cfe3d4', align: 'center', lineSpacing: 6,
+                wordWrap: { width: W - 60 }
+            }).setOrigin(0.5));
+            this.pauseButton(20, 'JA', 0x7a2a22, onYes);
+            this.pauseButton(86, 'AVBRYT', 0x3a4049, () => this.buildPauseMenu());
+        });
+    }
+
+    closePause() {
+        if (this.pauseC) { this.pauseC.destroy(); this.pauseC = null; }
+        this.menuOpen = false;
     }
 
     offerUpgrades(headline) {
