@@ -980,7 +980,7 @@ export default class GameScene extends Phaser.Scene {
     static SPEC = {
         taarn:       { cd: 850,  range: 130, dmg: 12, tex: 'bolt' },
         iskanon:     { cd: 1100, range: 125, dmg: 5,  tex: 'icebolt', slow: 0.45, slowMs: 2500 },
-        bombekaster: { cd: 1600, range: 155, dmg: 14, tex: 'shell', splash: 50, arc: true },
+        bombekaster: { cd: 1600, range: 165, dmg: 14, tex: 'shell', splash: 88, arc: true },
         piggfelle:   { cd: 700,  range: 40,  dmg: 8,  trap: true }
     };
 
@@ -1024,8 +1024,15 @@ export default class GameScene extends Phaser.Scene {
                 p.destroy();
                 if (spec.splash) {
                     // explosion: damage the whole cluster
-                    this.burst(ix, iy, 'ember', 12);
+                    this.burst(ix, iy, 'ember', 18);
                     this.cameras.main.shake(90, 0.005);
+                    // expanding shockwave ring sized to the splash radius
+                    const ring = this.add.circle(ix, iy, spec.splash, 0xffae42, 0.28)
+                        .setDepth(1290).setScale(0.3);
+                    this.tweens.add({
+                        targets: ring, scale: 1, alpha: 0, duration: 280,
+                        ease: 'Quad.out', onComplete: () => ring.destroy()
+                    });
                     this.enemies.forEach(e => {
                         if (!e.dead && Phaser.Math.Distance.Between(ix, iy, e.x, e.y) < spec.splash) {
                             this.hurtEnemy(e, spec.dmg);
@@ -1421,7 +1428,7 @@ export default class GameScene extends Phaser.Scene {
         this.tweens.add({ targets: sub, alpha: 1, duration: 400, delay: 500 });
 
         // then move on to rewards / results
-        this.time.delayedCall(1900, () => {
+        this.time.delayedCall(3200, () => {
             c.destroy();
             if (this.toClaim > 0) this.claimMilestone(1, this.toClaim);
             else this.showGameOver(this.gameOverReason);
