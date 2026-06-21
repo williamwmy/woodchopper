@@ -1091,19 +1091,21 @@ export default class GameScene extends Phaser.Scene {
         this.sfx.nightStart();
         this.banner(`🌙  NATT ${n}\nOverlev til daggry!`, 0x8ea0ff);
 
-        const total = 4 + (n - 1) * 2;
-        let spawned = 0;
+        this.nightTotal = 4 + (n - 1) * 2;
+        this.nightSpawned = 0;
+        this.nightEnding = false;
         const interval = Math.max(600, 1500 - n * 110);
         this.spawnTimer = this.time.addEvent({
             delay: interval, loop: true, callback: () => {
-                if (spawned >= total || this.phase !== 'night') return;
-                this.spawnEnemy(); spawned++;
+                if (this.nightSpawned >= this.nightTotal || this.phase !== 'night') return;
+                this.spawnEnemy(); this.nightSpawned++;
             }
         });
     }
 
     startDay() {
         this.phase = 'day';
+        this.nightEnding = false;
         const survived = this.wave;       // the night just survived
         this.wave++;
         this.phaseEnd = this.time.now + DAY_SECONDS * 1000;
@@ -1216,6 +1218,15 @@ export default class GameScene extends Phaser.Scene {
             const drain = (1.1 + (this.wave - 1) * 0.45) * this.fuelDrainMult;
             this.fuel = Math.max(0, this.fuel - drain * dt);
             if (this.fuel <= 0) { this.gameOver('Bålet slukna i mørket'); return; }
+
+            // dawn comes early once the whole wave is cleared — no dead air at the
+            // end of the night waiting for a timer with nothing left to fight
+            if (!this.nightEnding && this.nightSpawned >= this.nightTotal && this.enemies.length === 0) {
+                this.nightEnding = true;
+                if (this.spawnTimer) { this.spawnTimer.remove(); this.spawnTimer = null; }
+                this.banner('☀  NATTA ER KLARERT!', 0xffd166);
+                this.time.delayedCall(900, () => { if (this.phase === 'night') this.startDay(); });
+            }
         }
 
         // low-fuel warning: pulsing red vignette + alarm beep when the fire is dying
@@ -1232,7 +1243,7 @@ export default class GameScene extends Phaser.Scene {
 
         // phase timer
         const remain = Math.max(0, Math.ceil((this.phaseEnd - time) / 1000));
-        if (time >= this.phaseEnd) {
+        if (time >= this.phaseEnd && !this.nightEnding) {
             if (this.phase === 'day') this.startNight();
             else this.startDay();
         }
