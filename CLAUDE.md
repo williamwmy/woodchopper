@@ -79,14 +79,20 @@ upgrades, shop/building, phases (day/night), and `update()`.
 - **Visible upgrades**: reach → a reach ring around the player + slash arc scales
   to range; axe power → player aura (white→gold→orange→red) + size + slash tint;
   boots → dust trails; bigger fire → glow scales with `fuelMax`.
-- **Shop/building** (`shopItems`, `buyStructure`, `spawnStructure`): fences
-  (sturdy 300-hp palisade that blocks enemies; **flat price** — items can set
-  `flat: true` so `shopCost` skips the 1.4^count scaling), watchtowers
+- **Shop/building** (`shopItems`, `startPlacement`/`tryPlace`, `spawnStructure`):
+  fences (sturdy 300-hp palisade that blocks enemies; **flat price** — items can
+  set `flat: true` so `shopCost` skips the 1.4^count scaling), watchtowers
   (auto-shoot), ice cannons (slow), mortars (AoE splash), spike traps (passive
   AoE), huts (HP regen), sawmills (each adds +1 wood per felled tree and speeds
-  tree regrowth ~25%). Placed into fixed `slots` (radial rings relative to FIRE,
-  see `createSlots`). Active buildings share `updateStructures()` +
-  `GameScene.SPEC` (cd/range/dmg/slow/splash/trap). Day only.
+  tree regrowth ~25%). **Manual placement**: tapping a shop row enters a
+  placement mode (`placeC` overlay) — drag a ghost + range ring around, tap to
+  build where valid (`placeValid`/`clampBuild`: off the fire, not overlapping),
+  chainable until out of wood or at the per-item `max`. Active buildings share
+  `updateStructures()` + `GameScene.SPEC` (cd/range/dmg/slow/splash/trap) scaled
+  per-tower by `structStats(s)` from `s.lvl`. **Upgrades**: tap a placed tower in
+  the day → `openUpgrade(s)` spends wood (`upgradeCost`) to raise its level
+  (dmg/range/firerate), up to level 5. Towers lean/recoil + muzzle-flash on fire
+  (`towerFireFx`). Day only.
 - **Fire/fuel**: drains at night; `feedFire()` converts wood→fuel. Light/darkness
   is a dark overlay + additive glow scaled by fuel ratio.
 - **Enemies**: spawn at edges, path to the fire (attack a blocking fence first,

@@ -90,7 +90,6 @@ export default class GameScene extends Phaser.Scene {
         this.createFire();
         this.createTrees();
         this.createPlayer();
-        this.createSlots();
 
         // Darkness + glow for night
         this.nightOverlay = this.add.rectangle(0, 0, W, H, 0x0a1024)
@@ -485,28 +484,21 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
-    createSlots() {
-        // build slots in rings around the fire, clamped to the play area
-        const at = (deg, r) => {
-            const a = Phaser.Math.DegToRad(deg);
-            return {
-                x: Phaser.Math.Clamp(FIRE.x + Math.cos(a) * r, 26, W - 26),
-                y: Phaser.Math.Clamp(FIRE.y + Math.sin(a) * r, PLAY_TOP + 26, PLAY_BOTTOM - 12),
-                taken: false
-            };
+    // clamp a candidate build spot into the play area
+    clampBuild(x, y) {
+        return {
+            x: Phaser.Math.Clamp(x, 26, W - 26),
+            y: Phaser.Math.Clamp(y, PLAY_TOP + 26, PLAY_BOTTOM - 12)
         };
-        const ring = (r, count, off = 0) =>
-            Array.from({ length: count }, (_, i) => at(off + i * 360 / count, r));
+    }
 
-        this.slots = {
-            gjerde: ring(72, 16),                         // dense inner palisade
-            piggfelle: ring(48, 6, 30),                   // traps just inside the wall
-            taarn: ring(110, 6),                          // tower ring
-            iskanon: ring(140, 4, 45),                    // outer ring
-            bombekaster: ring(140, 4, 0),                 // interleaved with ice cannons
-            hus: ring(166, 3, 50),                        // outer support
-            sagbruk: ring(166, 3, 130)
-        };
+    // is (x,y) a legal place to build? not on the fire, not on top of another build
+    placeValid(x, y) {
+        if (Phaser.Math.Distance.Between(x, y, FIRE.x, FIRE.y) < 46) return false;
+        for (const s of this.structures) {
+            if (!s.dead && Phaser.Math.Distance.Between(x, y, s.x, s.y) < 24) return false;
+        }
+        return true;
     }
 
     // ---------------------------------------------------------------- HUD
@@ -602,6 +594,13 @@ export default class GameScene extends Phaser.Scene {
                Phaser.Math.Distance.Between(px, py, FIRE.x, FIRE.y) < 40;
     }
 
+    // during the day, a tap on an upgradeable tower opens its menu — don't also
+    // start the joystick there
+    nearStructure(px, py) {
+        return this.structures.some(s => !s.dead && GameScene.SPEC[s.type] &&
+            Phaser.Math.Distance.Between(px, py, s.x, s.y) < 22);
+    }
+
     setupInput() {
         this.cursors = this.input.keyboard.createCursorKeys();
         this.keys = this.input.keyboard.addKeys('W,A,S,D,SPACE,F,B');
@@ -611,7 +610,8 @@ export default class GameScene extends Phaser.Scene {
 
         this.input.on('pointerdown', (p) => {
             this.sfx.ensure();
-            if (this.joy.active || this.onButton(p.x, p.y) || this.menuOpen) return;
+            if (this.joy.active || this.onButton(p.x, p.y) || this.menuOpen || this.placing) return;
+            if (this.phase === 'day' && this.nearStructure(p.x, p.y)) return;
             this.joy.active = true; this.joy.id = p.id;
             this.joy.ox = p.x; this.joy.oy = p.y;
             this.joyBase.setPosition(p.x, p.y).setVisible(true);
@@ -910,13 +910,13 @@ export default class GameScene extends Phaser.Scene {
     // ---------------------------------------------------------------- shop / building
     shopItems() {
         return [
-            { key: 'gjerde', icon: '🚧', name: 'Gjerde', desc: 'Robust palisade som stopper fiender (fast pris)', base: 100, flat: true },
-            { key: 'taarn', icon: '🗼', name: 'Vakttårn', desc: 'Skyter automatisk på fiender', base: 28 },
-            { key: 'iskanon', icon: '🧊', name: 'Iskanon', desc: 'Fryser fiender så de går saktere', base: 40 },
-            { key: 'bombekaster', icon: '💣', name: 'Bombekaster', desc: 'Splintskade på klynger av fiender', base: 52 },
-            { key: 'piggfelle', icon: '🪤', name: 'Piggfelle', desc: 'Skader alle fiender rundt seg', base: 18 },
-            { key: 'hus', icon: '🏠', name: 'Hytte', desc: 'Heler deg sakte (+3 liv/s)', base: 38 },
-            { key: 'sagbruk', icon: '🪚', name: 'Sagbruk', desc: '+1 ved per tre & raskere gjenvekst', base: 30 }
+            { key: 'gjerde', icon: '🚧', name: 'Gjerde', desc: 'Robust palisade som stopper fiender (fast pris)', base: 100, flat: true, max: 24 },
+            { key: 'taarn', icon: '🗼', name: 'Vakttårn', desc: 'Skyter automatisk på fiender', base: 28, max: 8 },
+            { key: 'iskanon', icon: '🧊', name: 'Iskanon', desc: 'Fryser fiender så de går saktere', base: 40, max: 6 },
+            { key: 'bombekaster', icon: '💣', name: 'Bombekaster', desc: 'Splintskade på klynger av fiender', base: 52, max: 6 },
+            { key: 'piggfelle', icon: '🪤', name: 'Piggfelle', desc: 'Skader alle fiender rundt seg', base: 18, max: 8 },
+            { key: 'hus', icon: '🏠', name: 'Hytte', desc: 'Heler deg sakte (+3 liv/s)', base: 38, max: 4 },
+            { key: 'sagbruk', icon: '🪚', name: 'Sagbruk', desc: '+1 ved per tre & raskere gjenvekst', base: 30, max: 4 }
         ];
     }
 
@@ -960,7 +960,7 @@ export default class GameScene extends Phaser.Scene {
         items.forEach((it, i) => {
             const y = top + spacing * i + spacing / 2;
             const cost = this.shopCost(it);
-            const max = this.slots[it.key].length;
+            const max = it.max;
             const built = this.buildCounts[it.key];
             const full = built >= max;
             const afford = this.wood >= cost && !full;
@@ -980,7 +980,7 @@ export default class GameScene extends Phaser.Scene {
                 fontSize: '15px', fontFamily: 'Arial', fontStyle: 'bold',
                 color: full ? '#888' : (afford ? '#ffd166' : '#ff6b6b')
             }).setOrigin(1, 0.5));
-            row.on('pointerup', () => this.buyStructure(it));
+            row.on('pointerup', () => this.startPlacement(it));
         });
 
         const close = this.add.rectangle(W / 2, H - 52, 220, 52, 0xc1440e)
@@ -992,41 +992,186 @@ export default class GameScene extends Phaser.Scene {
         close.on('pointerup', () => { c.destroy(); this.shopContainer = null; this.menuOpen = false; });
     }
 
-    buyStructure(item) {
+    // ---- manual placement: drag a ghost around, see its range, tap to build ----
+    startPlacement(item) {
         if (!this.shopArmed) return;     // panel still animating in
+        if (this.buildCounts[item.key] >= item.max) { this.sfx.deny(); return; }
+        if (this.wood < this.shopCost(item)) {
+            this.sfx.deny(); this.floatText(W / 2, 130, 'For lite ved!', '#ff6b6b'); return;
+        }
+        // tear down the shop panel; keep the world paused via menuOpen
+        if (this.shopContainer) { this.shopContainer.destroy(); this.shopContainer = null; }
+        this.placing = item;
+
+        const c = this.add.container(0, 0).setDepth(4200);
+        this.placeC = c;
+        // a transparent layer captures the drag/tap across the whole screen
+        const layer = this.add.rectangle(0, 0, W, H, 0x000000, 0.01).setOrigin(0).setInteractive();
+        c.add(layer);
+
+        const tex = this.structTex(item.key);
+        const spec = GameScene.SPEC[item.key];
+        const start = this.clampBuild(FIRE.x, FIRE.y + 110);
+        const ring = this.add.circle(start.x, start.y, spec ? spec.range : 24, 0xffd166, 0.10)
+            .setStrokeStyle(2, 0xffe08a, 0.7).setDepth(4201);
+        if (!spec) ring.setVisible(false);
+        const ghost = this.add.image(start.x, start.y, tex).setAlpha(0.6).setDepth(4202);
+        c.add(ring); c.add(ghost);
+
+        c.add(this.add.text(W / 2, PLAY_TOP + 14, 'Dra og slipp for å plassere', {
+            fontSize: '15px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166',
+            backgroundColor: '#0008', padding: { x: 8, y: 4 }
+        }).setOrigin(0.5).setDepth(4203));
+
+        const doneBtn = this.add.rectangle(W / 2, H - 52, 200, 50, 0xc1440e)
+            .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true }).setDepth(4203);
+        const doneTxt = this.add.text(W / 2, H - 52, 'FERDIG', {
+            fontSize: '20px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+        }).setOrigin(0.5).setDepth(4204);
+        c.add(doneBtn); c.add(doneTxt);
+        doneBtn.on('pointerup', () => this.endPlacement());
+
+        const move = (p) => {
+            const q = this.clampBuild(p.x, p.y);
+            ghost.setPosition(q.x, q.y).setDepth(4202);
+            ring.setPosition(q.x, q.y);
+            const ok = this.placeValid(q.x, q.y);
+            ghost.setTint(ok ? 0xffffff : 0xff5555);
+            ring.setStrokeStyle(2, ok ? 0xffe08a : 0xff5555, 0.7);
+        };
+        layer.on('pointermove', move);
+        layer.on('pointerdown', move);
+        // place on release so a drag-then-lift drops it where the finger ends
+        layer.on('pointerup', (p) => {
+            if (Phaser.Math.Distance.Between(p.x, p.y, doneBtn.x, doneBtn.y) < 120) return;
+            const q = this.clampBuild(p.x, p.y);
+            this.tryPlace(q.x, q.y);
+        });
+        move({ x: start.x, y: start.y });
+    }
+
+    tryPlace(x, y) {
+        const item = this.placing;
+        if (!item) return;
         const cost = this.shopCost(item);
-        const slot = this.slots[item.key].find(s => !s.taken);
-        if (!slot) { this.sfx.deny(); return; }
-        if (this.wood < cost) { this.sfx.deny(); this.floatText(W / 2, 130, 'For lite ved!', '#ff6b6b'); return; }
+        if (this.buildCounts[item.key] >= item.max) { this.sfx.deny(); this.endPlacement(); return; }
+        if (this.wood < cost) { this.sfx.deny(); this.floatText(x, y - 20, 'For lite ved!', '#ff6b6b'); return; }
+        if (!this.placeValid(x, y)) { this.sfx.deny(); this.floatText(x, y - 20, 'Blokkert!', '#ff6b6b'); return; }
 
         this.wood -= cost;
         this.stats.woodSpent += cost;
         this.buildCounts[item.key]++;
-        slot.taken = true;
-        this.spawnStructure(item.key, slot);
+        this.spawnStructure(item.key, x, y);
         this.sfx.build();
         if (item.key === 'hus') this.houseRegen = this.buildCounts.hus * 3;
-        this.renderShop();   // refresh counts/costs
+        this.updateHUD();
+
+        // keep placing more of the same until out of wood / at the cap
+        if (this.buildCounts[item.key] >= item.max || this.wood < this.shopCost(item)) this.endPlacement();
     }
 
-    spawnStructure(type, slot) {
-        const tex = {
+    endPlacement() {
+        this.placing = null;
+        if (this.placeC) { this.placeC.destroy(); this.placeC = null; }
+        this.menuOpen = false;          // hand control back to the player
+    }
+
+    structTex(type) {
+        return {
             gjerde: 'fence', taarn: 'tower', hus: 'house', sagbruk: 'sawmill',
             iskanon: 'icecannon', bombekaster: 'mortar', piggfelle: 'spiketrap'
         }[type];
-        const s = this.add.image(slot.x, slot.y, tex).setDepth(slot.y);
-        s.type = type; s.slot = slot; s.dead = false; s.cd = 0;
+    }
+
+    spawnStructure(type, x, y) {
+        const p = this.clampBuild(x, y);
+        const s = this.add.image(p.x, p.y, this.structTex(type)).setDepth(p.y);
+        s.type = type; s.dead = false; s.cd = 0; s.lvl = 1;
+        s.buildBase = this.shopItems().find(it => it.key === type).base;
         if (type === 'gjerde') { s.maxHp = 300; s.hp = 300; }   // sturdy palisade
-        s.shadow = this.addShadow(slot.x, slot.y + 14, 32, 0.45, slot.y - 1);
+        s.shadow = this.addShadow(p.x, p.y + 14, 32, 0.45, p.y - 1);
         s.setScale(0.2);
         this.tweens.add({ targets: s, scale: 1, duration: 300, ease: 'Back.out' });
+        // ranged buildings & traps can be upgraded by tapping them during the day
+        if (GameScene.SPEC[type]) {
+            s.setInteractive({ useHandCursor: true });
+            s.on('pointerup', () => this.openUpgrade(s));
+        }
         this.structures.push(s);
         return s;
     }
 
+    // ---- tower upgrades: another place to sink wood ----
+    structStats(s) {
+        const base = GameScene.SPEC[s.type];
+        const l = (s.lvl || 1) - 1;
+        return {
+            ...base,
+            dmg: Math.round(base.dmg * (1 + 0.6 * l)),
+            range: Math.round(base.range * (1 + 0.08 * l)),
+            cd: Math.round(base.cd * Math.pow(0.92, l)),
+            splash: base.splash ? Math.round(base.splash * (1 + 0.1 * l)) : base.splash
+        };
+    }
+
+    upgradeCost(s) {
+        return Math.round(s.buildBase * 0.7 * (s.lvl || 1));
+    }
+
+    openUpgrade(s) {
+        if (this.menuOpen || this.placing || this.phase !== 'day' || s.dead) return;
+        const MAX_LVL = 5;
+        this.menuOpen = true;
+        this.swingHeld = false;
+        const c = this.add.container(0, 0).setDepth(4300);
+        c.add(this.add.rectangle(0, 0, W, H, 0x05080d, 0.7).setOrigin(0).setInteractive());
+
+        const maxed = (s.lvl || 1) >= MAX_LVL;
+        const cost = this.upgradeCost(s);
+        const cur = this.structStats(s);
+        const next = maxed ? cur : this.structStats({ type: s.type, lvl: (s.lvl || 1) + 1 });
+
+        const name = { taarn: 'Vakttårn', iskanon: 'Iskanon', bombekaster: 'Bombekaster', piggfelle: 'Piggfelle' }[s.type];
+        c.add(this.add.text(W / 2, H / 2 - 120, `${name} · nivå ${s.lvl}`, {
+            fontSize: '24px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
+        }).setOrigin(0.5));
+        const statLine = maxed
+            ? `Skade ${cur.dmg} · rekkevidde ${cur.range}`
+            : `Skade ${cur.dmg} → ${next.dmg}\nRekkevidde ${cur.range} → ${next.range}\nFyringsrate ${cur.cd} → ${next.cd} ms`;
+        c.add(this.add.text(W / 2, H / 2 - 46, statLine, {
+            fontSize: '15px', fontFamily: 'Arial', color: '#cfe3d4', align: 'center', lineSpacing: 6
+        }).setOrigin(0.5));
+
+        const upBtn = this.add.rectangle(W / 2, H / 2 + 40, 260, 56, maxed ? 0x3a4049 : 0x2a6b3a)
+            .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
+        c.add(upBtn);
+        c.add(this.add.text(W / 2, H / 2 + 40, maxed ? 'MAKS NIVÅ' : `OPPGRADER · 🪵 ${cost}`, {
+            fontSize: '19px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+        }).setOrigin(0.5));
+
+        const closeUp = () => { c.destroy(); this.menuOpen = false; };
+        upBtn.on('pointerup', () => {
+            if (maxed) return;
+            if (this.wood < cost) { this.sfx.deny(); this.floatText(W / 2, H / 2 + 80, 'For lite ved!', '#ff6b6b'); return; }
+            this.wood -= cost; this.stats.woodSpent += cost; s.lvl++;
+            this.sfx.upgrade();
+            this.burst(s.x, s.y, 'ember', 10);
+            this.tweens.add({ targets: s, scale: 1.25, duration: 120, yoyo: true });
+            this.updateHUD();
+            closeUp();
+        });
+
+        const cancel = this.add.rectangle(W / 2, H / 2 + 110, 260, 46, 0xc1440e)
+            .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
+        c.add(cancel);
+        c.add(this.add.text(W / 2, H / 2 + 110, 'LUKK', {
+            fontSize: '17px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+        }).setOrigin(0.5));
+        cancel.on('pointerup', closeUp);
+    }
+
     destroyStructure(s) {
         s.dead = true;
-        if (s.slot) s.slot.taken = false;
         if (s.type === 'gjerde') this.buildCounts.gjerde--;
         if (s.shadow) s.shadow.destroy();
         this.burst(s.x, s.y, 'chip', 8);
@@ -1045,8 +1190,8 @@ export default class GameScene extends Phaser.Scene {
     updateStructures(time) {
         this.structures.forEach(s => {
             if (s.dead) return;
-            const spec = GameScene.SPEC[s.type];
-            if (!spec || time < (s.cd || 0)) return;
+            if (!GameScene.SPEC[s.type] || time < (s.cd || 0)) return;
+            const spec = this.structStats(s);   // scaled by upgrade level
 
             if (spec.trap) {
                 // damage everything standing on the trap
@@ -1071,9 +1216,25 @@ export default class GameScene extends Phaser.Scene {
         });
     }
 
+    // turret juice: lean toward the target, recoil, and flash the muzzle
+    towerFireFx(src, enemy) {
+        // face the target (sprites are drawn facing forward; flip for left)
+        src.setFlipX(enemy.x < src.x);
+        const a = Phaser.Math.Angle.Between(src.x, src.y, enemy.x, enemy.y);
+        // a small lean toward the shot, then ease back
+        const lean = Phaser.Math.Clamp((enemy.x - src.x) / 80, -1, 1) * 0.22;
+        this.tweens.add({ targets: src, rotation: lean, duration: 60, yoyo: true, ease: 'Quad.out' });
+        // recoil kick + muzzle flash at the barrel tip
+        const mx = src.x + Math.cos(a) * 12, my = src.y - 10 + Math.sin(a) * 12;
+        const flash = this.add.image(mx, my, 'glow').setBlendMode(Phaser.BlendModes.ADD)
+            .setDepth(1305).setScale(0.5).setAlpha(0.9);
+        this.tweens.add({ targets: flash, scale: 0.15, alpha: 0, duration: 140, onComplete: () => flash.destroy() });
+    }
+
     fireProjectile(src, enemy, spec) {
         const p = this.add.image(src.x, src.y - 12, spec.tex).setDepth(1300);
         this.sfx.towerShoot();
+        this.towerFireFx(src, enemy);
         this.tweens.add({
             targets: p, x: enemy.x, y: enemy.y, duration: spec.arc ? 340 : 180,
             scale: spec.arc ? 1.4 : 1,
