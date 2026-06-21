@@ -109,7 +109,7 @@ export function attributes(ch) {
         { icon: '🪵', label: 'Startved', value: 12 + p.wood * 2 },
         { icon: '🛡️', label: 'Bålvern', value: (p.drain * 2) + '%' },
         { icon: '🎯', label: 'Kritisk sjanse', value: (p.crit * 1.5).toFixed(1) + '%' },
-        { icon: '🥊', label: 'Tilbakeslag', value: 14 + p.knock * 2 }
+        { icon: '🥊', label: 'Tilbakeslag', value: 7 + p.knock * 2 }
     ];
 }
 

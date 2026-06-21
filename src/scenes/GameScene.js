@@ -55,7 +55,7 @@ export default class GameScene extends Phaser.Scene {
         this.killWood = 2;        // wood per killed enemy
         this.critChance = 0;      // 0..1 chance for a critical hit
         this.critMult = 2;        // damage multiplier on a crit
-        this.knockback = 14;      // px enemies are shoved on an axe hit
+        this.knockback = 7;       // px enemies are shoved on an axe hit
         this.fuelDrainMult = 1;   // bålmester reduces this
         this.dawnHeal = 0;        // hp restored each dawn
         this.upgLevels = {};      // how many times each upgrade was taken
@@ -494,9 +494,11 @@ export default class GameScene extends Phaser.Scene {
         };
     }
 
-    // is (x,y) a legal place to build? not on the fire, not on top of another build
+    // is (x,y) a legal place to build? not on the fire, not on top of another
+    // build, and not under the control buttons (so taps there stay unambiguous)
     placeValid(x, y) {
         if (Phaser.Math.Distance.Between(x, y, FIRE.x, FIRE.y) < 46) return false;
+        if (this.onButton(x, y)) return false;
         for (const s of this.structures) {
             if (!s.dead && Phaser.Math.Distance.Between(x, y, s.x, s.y) < 24) return false;
         }
