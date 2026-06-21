@@ -494,6 +494,16 @@ export default class GameScene extends Phaser.Scene {
         };
     }
 
+    // snap a point to the build grid (cells centred on the fire), kept in-bounds
+    snapToGrid(x, y) {
+        const C = GameScene.CELL, ox = FIRE.x, oy = FIRE.y;
+        const minIx = Math.ceil((26 - ox) / C), maxIx = Math.floor((W - 26 - ox) / C);
+        const minIy = Math.ceil((PLAY_TOP + 26 - oy) / C), maxIy = Math.floor((PLAY_BOTTOM - 12 - oy) / C);
+        const ix = Phaser.Math.Clamp(Math.round((x - ox) / C), minIx, maxIx);
+        const iy = Phaser.Math.Clamp(Math.round((y - oy) / C), minIy, maxIy);
+        return { x: ox + ix * C, y: oy + iy * C };
+    }
+
     // is (x,y) a legal place to build? not on the fire, not on top of another
     // build, and not under the control buttons (so taps there stay unambiguous)
     placeValid(x, y) {
@@ -919,10 +929,10 @@ export default class GameScene extends Phaser.Scene {
     shopItems() {
         return [
             { key: 'gjerde', icon: '🚧', name: 'Gjerde', desc: 'Robust palisade som stopper fiender (fast pris)', base: 100, flat: true, max: 24 },
-            { key: 'taarn', icon: '🗼', name: 'Vakttårn', desc: 'Skyter automatisk på fiender', base: 28, max: 8 },
-            { key: 'iskanon', icon: '🧊', name: 'Iskanon', desc: 'Fryser fiender så de går saktere', base: 40, max: 6 },
-            { key: 'bombekaster', icon: '💣', name: 'Bombekaster', desc: 'Splintskade på klynger av fiender', base: 52, max: 6 },
-            { key: 'piggfelle', icon: '🪤', name: 'Piggfelle', desc: 'Skader alle fiender rundt seg', base: 18, max: 8 },
+            { key: 'taarn', icon: '🗼', name: 'Vakttårn', desc: 'Skyter automatisk på fiender', base: 28, max: 16 },
+            { key: 'iskanon', icon: '🧊', name: 'Iskanon', desc: 'Fryser fiender så de går saktere', base: 40, max: 12 },
+            { key: 'bombekaster', icon: '💣', name: 'Bombekaster', desc: 'Splintskade på klynger av fiender', base: 52, max: 12 },
+            { key: 'piggfelle', icon: '🪤', name: 'Piggfelle', desc: 'Skader alle fiender rundt seg', base: 18, max: 14 },
             { key: 'hus', icon: '🏠', name: 'Hytte', desc: 'Heler deg sakte (+3 liv/s)', base: 38, max: 4 },
             { key: 'sagbruk', icon: '🪚', name: 'Sagbruk', desc: '+1 ved per tre & raskere gjenvekst', base: 30, max: 4 }
         ];
@@ -1017,43 +1027,67 @@ export default class GameScene extends Phaser.Scene {
         const layer = this.add.rectangle(0, 0, W, H, 0x000000, 0.01).setOrigin(0).setInteractive();
         c.add(layer);
 
+        // faint dot grid so the snap-to-grid placement reads clearly
+        const C = GameScene.CELL, ox = FIRE.x, oy = FIRE.y;
+        const minIx = Math.ceil((26 - ox) / C), maxIx = Math.floor((W - 26 - ox) / C);
+        const minIy = Math.ceil((PLAY_TOP + 26 - oy) / C), maxIy = Math.floor((PLAY_BOTTOM - 12 - oy) / C);
+        const grid = this.add.graphics();
+        grid.fillStyle(0xffe08a, 0.16);
+        for (let ix = minIx; ix <= maxIx; ix++)
+            for (let iy = minIy; iy <= maxIy; iy++)
+                grid.fillCircle(ox + ix * C, oy + iy * C, 1.6);
+        c.add(grid);
+
         const tex = this.structTex(item.key);
         const spec = GameScene.SPEC[item.key];
-        const start = this.clampBuild(FIRE.x, FIRE.y + 110);
+        const start = this.snapToGrid(FIRE.x, FIRE.y + 110);
         const ring = this.add.circle(start.x, start.y, spec ? spec.range : 24, 0xffd166, 0.10)
-            .setStrokeStyle(2, 0xffe08a, 0.7).setDepth(4201);
+            .setStrokeStyle(2, 0xffe08a, 0.7);
         if (!spec) ring.setVisible(false);
-        const ghost = this.add.image(start.x, start.y, tex).setAlpha(0.6).setDepth(4202);
-        c.add(ring); c.add(ghost);
+        // a cell highlight makes the targeted grid square obvious
+        const cell = this.add.rectangle(start.x, start.y, C - 2, C - 2, 0xffe08a, 0.12)
+            .setStrokeStyle(2, 0xffe08a, 0.8);
+        const ghost = this.add.image(start.x, start.y, tex).setAlpha(0.65);
+        c.add(ring); c.add(cell); c.add(ghost);
 
-        c.add(this.add.text(W / 2, PLAY_TOP + 14, 'Dra og slipp for å plassere', {
+        c.add(this.add.text(W / 2, PLAY_TOP + 14, 'Trykk en rute, så «Bygg her»', {
             fontSize: '15px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166',
             backgroundColor: '#0008', padding: { x: 8, y: 4 }
-        }).setOrigin(0.5).setDepth(4203));
+        }).setOrigin(0.5));
 
-        const doneBtn = this.add.rectangle(W / 2, H - 52, 200, 50, 0xc1440e)
-            .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true }).setDepth(4203);
-        const doneTxt = this.add.text(W / 2, H - 52, 'FERDIG', {
+        // two-step: tap a cell to pick it (finger lifts → you can see it), then confirm
+        const buildBtn = this.add.rectangle(W / 2, H - 106, 240, 52, 0x2a6b3a)
+            .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
+        const buildTxt = this.add.text(W / 2, H - 106, '✓ BYGG HER', {
             fontSize: '20px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
-        }).setOrigin(0.5).setDepth(4204);
-        c.add(doneBtn); c.add(doneTxt);
+        }).setOrigin(0.5);
+        const doneBtn = this.add.rectangle(W / 2, H - 50, 240, 48, 0xc1440e)
+            .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
+        const doneTxt = this.add.text(W / 2, H - 50, 'FERDIG', {
+            fontSize: '19px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+        }).setOrigin(0.5);
+        c.add(buildBtn); c.add(buildTxt); c.add(doneBtn); c.add(doneTxt);
         doneBtn.on('pointerup', () => this.endPlacement());
 
+        let sel = { x: start.x, y: start.y, ok: false };
         const move = (p) => {
-            const q = this.clampBuild(p.x, p.y);
-            ghost.setPosition(q.x, q.y).setDepth(4202);
-            ring.setPosition(q.x, q.y);
+            const q = this.snapToGrid(p.x, p.y);
             const ok = this.placeValid(q.x, q.y);
-            ghost.setTint(ok ? 0xffffff : 0xff5555);
-            ring.setStrokeStyle(2, ok ? 0xffe08a : 0xff5555, 0.7);
+            sel = { x: q.x, y: q.y, ok };
+            ghost.setPosition(q.x, q.y).setTint(ok ? 0xffffff : 0xff5555);
+            ring.setPosition(q.x, q.y).setStrokeStyle(2, ok ? 0xffe08a : 0xff5555, 0.7);
+            cell.setPosition(q.x, q.y).setStrokeStyle(2, ok ? 0xffe08a : 0xff5555, 0.8);
+            buildBtn.setFillStyle(ok ? 0x2a6b3a : 0x444a4f);
         };
+        // tap/drag anywhere just MOVES the selection — never builds (finger occludes)
         layer.on('pointermove', move);
         layer.on('pointerdown', move);
-        // place on release so a drag-then-lift drops it where the finger ends
-        layer.on('pointerup', (p) => {
-            if (Phaser.Math.Distance.Between(p.x, p.y, doneBtn.x, doneBtn.y) < 120) return;
-            const q = this.clampBuild(p.x, p.y);
-            this.tryPlace(q.x, q.y);
+        layer.on('pointerup', move);
+
+        buildBtn.on('pointerup', () => {
+            if (!sel.ok) { this.sfx.deny(); this.floatText(sel.x, sel.y - 20, 'Ugyldig rute', '#ff6b6b'); return; }
+            this.tryPlace(sel.x, sel.y);
+            if (this.placing) move(sel);   // refresh validity (cell now occupied)
         });
         move({ x: start.x, y: start.y });
     }
@@ -1202,6 +1236,8 @@ export default class GameScene extends Phaser.Scene {
         this.tweens.add({ targets: s, alpha: 0, scaleY: 0, duration: 200, onComplete: () => s.destroy() });
         this.structures = this.structures.filter(x => x !== s);
     }
+
+    static CELL = 34;   // build-grid cell size
 
     // stats per active building type
     static SPEC = {

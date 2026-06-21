@@ -85,9 +85,12 @@ upgrades, shop/building, phases (day/night), and `update()`.
   (auto-shoot), ice cannons (slow), mortars (AoE splash), spike traps (passive
   AoE), huts (HP regen), sawmills (each adds +1 wood per felled tree and speeds
   tree regrowth ~25%). **Manual placement**: tapping a shop row enters a
-  placement mode (`placeC` overlay) — drag a ghost + range ring around, tap to
-  build where valid (`placeValid`/`clampBuild`: off the fire, not overlapping),
-  chainable until out of wood or at the per-item `max`. Active buildings share
+  placement mode (`placeC` overlay) — a ghost + range ring snaps to a dot grid
+  (`snapToGrid`, cell `GameScene.CELL`, centred on FIRE). **Two-step**: tapping
+  the play area only moves the selected cell (so a finger doesn't occlude the
+  spot); a separate **✓ Bygg her** button confirms and builds where valid
+  (`placeValid`: off the fire, off the control buttons, not overlapping).
+  Chainable until out of wood or at the per-item `max`. Active buildings share
   `updateStructures()` + `GameScene.SPEC` (cd/range/dmg/slow/splash/trap) scaled
   per-tower by `structStats(s)` from `s.lvl`. **Upgrades**: tap a placed tower or
   fence in the day → `openUpgrade(s)` spends wood (`upgradeCost`) to raise its
