@@ -19,10 +19,11 @@ export const PERKS = [
     { key: 'fuel',  icon: '🔥', name: 'Glohjerte',    desc: '+5 bålkapasitet' },
     { key: 'wood',  icon: '🪵', name: 'Forsyninger',  desc: '+2 ved ved start' },
     { key: 'drain', icon: '🛡️', name: 'Seig glo',     desc: '-2% bålforbruk' },
-    { key: 'crit',  icon: '🎯', name: 'Skarpt blikk',  desc: '+1.5% kritisk sjanse' }
+    { key: 'crit',  icon: '🎯', name: 'Skarpt blikk',  desc: '+1.5% kritisk sjanse' },
+    { key: 'knock', icon: '🥊', name: 'Tungt slag',    desc: '+2 tilbakeslag' }
 ];
 
-const NEW_PERKS = () => ({ axe: 0, hp: 0, speed: 0, fuel: 0, wood: 0, drain: 0, crit: 0 });
+const NEW_PERKS = () => ({ axe: 0, hp: 0, speed: 0, fuel: 0, wood: 0, drain: 0, crit: 0, knock: 0 });
 
 let idSeq = 1;
 function newId() { idSeq += 1; return 'c' + Date.now() + '_' + idSeq; }
@@ -107,7 +108,8 @@ export function attributes(ch) {
         { icon: '🔥', label: 'Bålkapasitet', value: 100 + p.fuel * 5 },
         { icon: '🪵', label: 'Startved', value: 12 + p.wood * 2 },
         { icon: '🛡️', label: 'Bålvern', value: (p.drain * 2) + '%' },
-        { icon: '🎯', label: 'Kritisk sjanse', value: (p.crit * 1.5).toFixed(1) + '%' }
+        { icon: '🎯', label: 'Kritisk sjanse', value: (p.crit * 1.5).toFixed(1) + '%' },
+        { icon: '🥊', label: 'Tilbakeslag', value: 14 + p.knock * 2 }
     ];
 }
 

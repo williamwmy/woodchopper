@@ -55,6 +55,7 @@ export default class GameScene extends Phaser.Scene {
         this.killWood = 2;        // wood per killed enemy
         this.critChance = 0;      // 0..1 chance for a critical hit
         this.critMult = 2;        // damage multiplier on a crit
+        this.knockback = 14;      // px enemies are shoved on an axe hit
         this.fuelDrainMult = 1;   // bålmester reduces this
         this.dawnHeal = 0;        // hp restored each dawn
         this.upgLevels = {};      // how many times each upgrade was taken
@@ -74,6 +75,7 @@ export default class GameScene extends Phaser.Scene {
         this.wood += pk.wood * 2;
         this.fuelDrainMult *= Math.max(0.5, 1 - pk.drain * 0.02);
         this.critChance += pk.crit * 0.015;     // +1.5% crit per perk level
+        this.knockback += pk.knock * 2;         // +2 knockback per perk level
 
         this.facing = 1;               // 1 right, -1 left
         this.trees = [];
@@ -410,9 +412,9 @@ export default class GameScene extends Phaser.Scene {
 
     applyTreeTier(t, tier) {
         const spec = [
-            { tex: 'tree',         hp: 8,  wood: 0 },
-            { tex: 'tree_oak',     hp: 18, wood: 3 },
-            { tex: 'tree_ancient', hp: 32, wood: 7 },
+            { tex: 'tree',         hp: 16,  wood: 0 },
+            { tex: 'tree_oak',     hp: 42,  wood: 3 },
+            { tex: 'tree_ancient', hp: 85,  wood: 7 },
         ][tier];
         t.tier = tier;
         t.woodBonus = spec.wood;
@@ -729,9 +731,12 @@ export default class GameScene extends Phaser.Scene {
         this.sfx.hitEnemy();
         e.setTintFill(crit ? 0xffe66a : 0xffffff);
         this.time.delayedCall(70, () => { if (e.active) e.clearTint(); });
-        // knockback away from player
+        // knockback away from player — crits hit harder, heavy enemies resist
         const a = Phaser.Math.Angle.Between(this.player.x, this.player.y, e.x, e.y);
-        e.x += Math.cos(a) * 14; e.y += Math.sin(a) * 14;
+        const kb = this.knockback * (e.knockResist || 1) * (crit ? 1.6 : 1);
+        e.x = Phaser.Math.Clamp(e.x + Math.cos(a) * kb, 10, W - 10);
+        e.y = Phaser.Math.Clamp(e.y + Math.sin(a) * kb, PLAY_TOP, PLAY_BOTTOM);
+        e.setDepth(e.y);
         if (e.hp <= 0) this.killEnemy(e);
     }
 
@@ -777,7 +782,8 @@ export default class GameScene extends Phaser.Scene {
             { key: 'ember', icon: '🛡️', name: 'Bålmester', desc: '-25% brenselforbruk', apply: () => { this.fuelDrainMult *= 0.75; } },
             { key: 'regen', icon: '💚', name: 'Helbredende ild', desc: 'Heal nå + 15 liv hvert daggry', apply: () => { this.dawnHeal += 15; this.hp = Math.min(this.maxHp, this.hp + 30); } },
             { key: 'crit', icon: '🎯', name: 'Kritisk treff', desc: '+10% kritisk sjanse', apply: () => { this.critChance = Math.min(1, this.critChance + 0.10); } },
-            { key: 'critdmg', icon: '💥', name: 'Dødelig hugg', desc: '+50% kritisk skade', apply: () => { this.critMult += 0.5; } }
+            { key: 'critdmg', icon: '💥', name: 'Dødelig hugg', desc: '+50% kritisk skade', apply: () => { this.critMult += 0.5; } },
+            { key: 'knock', icon: '🥊', name: 'Kraftig slag', desc: '+12 tilbakeslag på fiender', apply: () => { this.knockback += 12; } }
         ];
     }
 
@@ -1376,12 +1382,12 @@ export default class GameScene extends Phaser.Scene {
             dmg: 4 + (n - 1) * 2 + Math.max(0, n - 8) * 1
         };
         const spec = {
-            shade:    { tex: 'enemy',    hp: 1,    speed: 1,    dmg: 1,   scale: 1 },
-            brute:    { tex: 'brute',    hp: 2.6,  speed: 0.55, dmg: 1.7, scale: 1.4 },
-            flyer:    { tex: 'flyer',    hp: 0.55, speed: 1.5,  dmg: 0.9, scale: 0.95, flies: true },
-            revenant: { tex: 'revenant', hp: 3.6,  speed: 0.85, dmg: 2.1, scale: 1.3 },
-            wraith:   { tex: 'wraith',   hp: 1.2,  speed: 1.75, dmg: 1.5, scale: 1.05 },
-            titan:    { tex: 'titan',    hp: 6.5,  speed: 0.5,  dmg: 2.8, scale: 1.7 }
+            shade:    { tex: 'enemy',    hp: 1,    speed: 1,    dmg: 1,   scale: 1,    knock: 1 },
+            brute:    { tex: 'brute',    hp: 2.6,  speed: 0.55, dmg: 1.7, scale: 1.4,  knock: 0.4 },
+            flyer:    { tex: 'flyer',    hp: 0.55, speed: 1.5,  dmg: 0.9, scale: 0.95, flies: true, knock: 0.85 },
+            revenant: { tex: 'revenant', hp: 3.6,  speed: 0.85, dmg: 2.1, scale: 1.3,  knock: 0.5 },
+            wraith:   { tex: 'wraith',   hp: 1.2,  speed: 1.75, dmg: 1.5, scale: 1.05, knock: 0.9 },
+            titan:    { tex: 'titan',    hp: 6.5,  speed: 0.5,  dmg: 2.8, scale: 1.7,  knock: 0.22 }
         }[type];
 
         const e = this.add.image(x, y, spec.tex).setDepth(y);
@@ -1390,6 +1396,7 @@ export default class GameScene extends Phaser.Scene {
         e.speed = base.speed * spec.speed;
         e.dmg = Math.round(base.dmg * spec.dmg);
         e.baseScale = spec.scale;
+        e.knockResist = spec.knock;
         e.flies = !!spec.flies;
         e.flap = Math.random() * Math.PI * 2;
         e.hitCd = 0;
