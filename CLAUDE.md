@@ -89,10 +89,11 @@ upgrades, shop/building, phases (day/night), and `update()`.
   build where valid (`placeValid`/`clampBuild`: off the fire, not overlapping),
   chainable until out of wood or at the per-item `max`. Active buildings share
   `updateStructures()` + `GameScene.SPEC` (cd/range/dmg/slow/splash/trap) scaled
-  per-tower by `structStats(s)` from `s.lvl`. **Upgrades**: tap a placed tower in
-  the day → `openUpgrade(s)` spends wood (`upgradeCost`) to raise its level
-  (dmg/range/firerate), up to level 5. Towers lean/recoil + muzzle-flash on fire
-  (`towerFireFx`). Day only.
+  per-tower by `structStats(s)` from `s.lvl`. **Upgrades**: tap a placed tower or
+  fence in the day → `openUpgrade(s)` spends wood (`upgradeCost`) to raise its
+  level, up to level 5 — towers gain dmg/range/firerate, fences gain max HP
+  (`fenceHp(lvl)`) and are fully repaired on upgrade. Towers lean/recoil +
+  muzzle-flash on fire (`towerFireFx`). Day only.
 - **Fire/fuel**: drains at night; `feedFire()` converts wood→fuel. Light/darkness
   is a dark overlay + additive glow scaled by fuel ratio.
 - **Enemies**: spawn at edges, path to the fire (attack a blocking fence first,

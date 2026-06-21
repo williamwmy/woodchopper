@@ -597,7 +597,7 @@ export default class GameScene extends Phaser.Scene {
     // during the day, a tap on an upgradeable tower opens its menu — don't also
     // start the joystick there
     nearStructure(px, py) {
-        return this.structures.some(s => !s.dead && GameScene.SPEC[s.type] &&
+        return this.structures.some(s => !s.dead && (GameScene.SPEC[s.type] || s.type === 'gjerde') &&
             Phaser.Math.Distance.Between(px, py, s.x, s.y) < 22);
     }
 
@@ -1092,8 +1092,8 @@ export default class GameScene extends Phaser.Scene {
         s.shadow = this.addShadow(p.x, p.y + 14, 32, 0.45, p.y - 1);
         s.setScale(0.2);
         this.tweens.add({ targets: s, scale: 1, duration: 300, ease: 'Back.out' });
-        // ranged buildings & traps can be upgraded by tapping them during the day
-        if (GameScene.SPEC[type]) {
+        // fences, ranged buildings & traps can be upgraded by tapping them by day
+        if (GameScene.SPEC[type] || type === 'gjerde') {
             s.setInteractive({ useHandCursor: true });
             s.on('pointerup', () => this.openUpgrade(s));
         }
@@ -1118,26 +1118,41 @@ export default class GameScene extends Phaser.Scene {
         return Math.round(s.buildBase * 0.7 * (s.lvl || 1));
     }
 
+    // a fence's max HP grows with its level
+    fenceHp(lvl) {
+        return Math.round(300 * (1 + 0.7 * (lvl - 1)));
+    }
+
     openUpgrade(s) {
         if (this.menuOpen || this.placing || this.phase !== 'day' || s.dead) return;
         const MAX_LVL = 5;
+        const isFence = s.type === 'gjerde';
         this.menuOpen = true;
         this.swingHeld = false;
         const c = this.add.container(0, 0).setDepth(4300);
         c.add(this.add.rectangle(0, 0, W, H, 0x05080d, 0.7).setOrigin(0).setInteractive());
 
-        const maxed = (s.lvl || 1) >= MAX_LVL;
+        const lvl = s.lvl || 1;
+        const maxed = lvl >= MAX_LVL;
         const cost = this.upgradeCost(s);
-        const cur = this.structStats(s);
-        const next = maxed ? cur : this.structStats({ type: s.type, lvl: (s.lvl || 1) + 1 });
 
-        const name = { taarn: 'Vakttårn', iskanon: 'Iskanon', bombekaster: 'Bombekaster', piggfelle: 'Piggfelle' }[s.type];
-        c.add(this.add.text(W / 2, H / 2 - 120, `${name} · nivå ${s.lvl}`, {
+        const name = { gjerde: 'Gjerde', taarn: 'Vakttårn', iskanon: 'Iskanon', bombekaster: 'Bombekaster', piggfelle: 'Piggfelle' }[s.type];
+        c.add(this.add.text(W / 2, H / 2 - 120, `${name} · nivå ${lvl}`, {
             fontSize: '24px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
         }).setOrigin(0.5));
-        const statLine = maxed
-            ? `Skade ${cur.dmg} · rekkevidde ${cur.range}`
-            : `Skade ${cur.dmg} → ${next.dmg}\nRekkevidde ${cur.range} → ${next.range}\nFyringsrate ${cur.cd} → ${next.cd} ms`;
+
+        let statLine;
+        if (isFence) {
+            statLine = maxed
+                ? `Maks HP ${s.maxHp} (nå ${Math.ceil(Math.max(0, s.hp))})`
+                : `Maks HP ${s.maxHp} → ${this.fenceHp(lvl + 1)}\nRepareres helt ved oppgradering`;
+        } else {
+            const cur = this.structStats(s);
+            const next = maxed ? cur : this.structStats({ type: s.type, lvl: lvl + 1 });
+            statLine = maxed
+                ? `Skade ${cur.dmg} · rekkevidde ${cur.range}`
+                : `Skade ${cur.dmg} → ${next.dmg}\nRekkevidde ${cur.range} → ${next.range}\nFyringsrate ${cur.cd} → ${next.cd} ms`;
+        }
         c.add(this.add.text(W / 2, H / 2 - 46, statLine, {
             fontSize: '15px', fontFamily: 'Arial', color: '#cfe3d4', align: 'center', lineSpacing: 6
         }).setOrigin(0.5));
@@ -1154,6 +1169,7 @@ export default class GameScene extends Phaser.Scene {
             if (maxed) return;
             if (this.wood < cost) { this.sfx.deny(); this.floatText(W / 2, H / 2 + 80, 'For lite ved!', '#ff6b6b'); return; }
             this.wood -= cost; this.stats.woodSpent += cost; s.lvl++;
+            if (isFence) { s.maxHp = this.fenceHp(s.lvl); s.hp = s.maxHp; s.setAlpha(1); }   // forsterk + reparer
             this.sfx.upgrade();
             this.burst(s.x, s.y, 'ember', 10);
             this.tweens.add({ targets: s, scale: 1.25, duration: 120, yoyo: true });
