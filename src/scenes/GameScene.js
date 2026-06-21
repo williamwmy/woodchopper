@@ -53,6 +53,8 @@ export default class GameScene extends Phaser.Scene {
         this.swingRange = 56;
         this.treeBonus = 0;       // extra wood per felled tree
         this.killWood = 2;        // wood per killed enemy
+        this.critChance = 0;      // 0..1 chance for a critical hit
+        this.critMult = 2;        // damage multiplier on a crit
         this.fuelDrainMult = 1;   // bålmester reduces this
         this.dawnHeal = 0;        // hp restored each dawn
         this.upgLevels = {};      // how many times each upgrade was taken
@@ -71,6 +73,7 @@ export default class GameScene extends Phaser.Scene {
         this.fuelMax += pk.fuel * 5; this.fuel = this.fuelMax;
         this.wood += pk.wood * 2;
         this.fuelDrainMult *= Math.max(0.5, 1 - pk.drain * 0.02);
+        this.critChance += pk.crit * 0.015;     // +1.5% crit per perk level
 
         this.facing = 1;               // 1 right, -1 left
         this.trees = [];
@@ -649,10 +652,12 @@ export default class GameScene extends Phaser.Scene {
     }
 
     chopTree(t) {
-        t.hp -= this.axeDmg;
+        const { dmg, crit } = this.rollDamage(this.axeDmg);
+        t.hp -= dmg;
         this.sfx.chopHit();
+        if (crit) this.sfx.crit();
         this.tweens.add({ targets: t, x: t.homeX + Phaser.Math.Between(-4, 4), duration: 50, yoyo: true });
-        this.burst(t.x, t.y - 10, 'chip', 5);
+        this.burst(t.x, t.y - 10, 'chip', crit ? 9 : 5);
         if (t.hp <= 0) {
             // sawmills boost wood per tree and speed up regrowth
             const mills = this.buildCounts.sagbruk;
@@ -681,10 +686,12 @@ export default class GameScene extends Phaser.Scene {
 
     hitEnemy(e) {
         if (e.dead) return;
-        e.hp -= this.axeDmg;
-        this.dmgNumber(e.x, e.y - 14, this.axeDmg);
+        const { dmg, crit } = this.rollDamage(this.axeDmg);
+        e.hp -= dmg;
+        this.dmgNumber(e.x, e.y - 14, dmg, crit);
+        if (crit) { this.sfx.crit(); this.cameras.main.shake(70, 0.005); this.burst(e.x, e.y, 'ember', 5); }
         this.sfx.hitEnemy();
-        e.setTintFill(0xffffff);
+        e.setTintFill(crit ? 0xffe66a : 0xffffff);
         this.time.delayedCall(70, () => { if (e.active) e.clearTint(); });
         // knockback away from player
         const a = Phaser.Math.Angle.Between(this.player.x, this.player.y, e.x, e.y);
@@ -732,7 +739,9 @@ export default class GameScene extends Phaser.Scene {
             { key: 'lumber', icon: '🪵', name: 'Effektiv hugger', desc: '+2 ved per tre', apply: () => { this.treeBonus += 2; } },
             { key: 'hunter', icon: '🩸', name: 'Rovdyr', desc: '+3 ved per drepte fiende', apply: () => { this.killWood += 3; } },
             { key: 'ember', icon: '🛡️', name: 'Bålmester', desc: '-25% brenselforbruk', apply: () => { this.fuelDrainMult *= 0.75; } },
-            { key: 'regen', icon: '💚', name: 'Helbredende ild', desc: 'Heal nå + 15 liv hvert daggry', apply: () => { this.dawnHeal += 15; this.hp = Math.min(this.maxHp, this.hp + 30); } }
+            { key: 'regen', icon: '💚', name: 'Helbredende ild', desc: 'Heal nå + 15 liv hvert daggry', apply: () => { this.dawnHeal += 15; this.hp = Math.min(this.maxHp, this.hp + 30); } },
+            { key: 'crit', icon: '🎯', name: 'Kritisk treff', desc: '+10% kritisk sjanse', apply: () => { this.critChance = Math.min(1, this.critChance + 0.10); } },
+            { key: 'critdmg', icon: '💥', name: 'Dødelig hugg', desc: '+50% kritisk skade', apply: () => { this.critMult += 0.5; } }
         ];
     }
 
@@ -1383,14 +1392,21 @@ export default class GameScene extends Phaser.Scene {
         this.tweens.add({ targets: t, y: y - 36, alpha: 0, duration: 900, onComplete: () => t.destroy() });
     }
 
-    // punchy red damage number that pops in over an enemy
-    dmgNumber(x, y, amount) {
-        const t = this.add.text(x + Phaser.Math.Between(-7, 7), y - 6, `${Math.round(amount)}`, {
-            fontSize: '18px', fontFamily: 'Arial', fontStyle: 'bold',
-            color: '#ffffff', stroke: '#7a1212', strokeThickness: 4
+    // roll the player's axe damage, applying a chance for a critical hit
+    rollDamage(base) {
+        if (Math.random() < this.critChance) return { dmg: Math.round(base * this.critMult), crit: true };
+        return { dmg: base, crit: false };
+    }
+
+    // punchy damage number that pops in over an enemy — crits are bigger & gold
+    dmgNumber(x, y, amount, crit = false) {
+        const t = this.add.text(x + Phaser.Math.Between(-7, 7), y - 6, `${Math.round(amount)}${crit ? '!' : ''}`, {
+            fontSize: crit ? '26px' : '18px', fontFamily: 'Arial', fontStyle: 'bold',
+            color: crit ? '#ffd83a' : '#ffffff', stroke: crit ? '#a35200' : '#7a1212',
+            strokeThickness: crit ? 5 : 4
         }).setOrigin(0.5).setDepth(1600).setScale(0.5);
-        this.tweens.add({ targets: t, scale: 1, duration: 110, ease: 'Back.out' });
-        this.tweens.add({ targets: t, y: t.y - 30, alpha: 0, duration: 620, delay: 110, onComplete: () => t.destroy() });
+        this.tweens.add({ targets: t, scale: crit ? 1.3 : 1, duration: 110, ease: 'Back.out' });
+        this.tweens.add({ targets: t, y: t.y - (crit ? 40 : 30), alpha: 0, duration: crit ? 760 : 620, delay: 110, onComplete: () => t.destroy() });
     }
 
     // brief freeze-frame for impact — pauses the sim while juice tweens play on
