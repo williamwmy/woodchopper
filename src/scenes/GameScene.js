@@ -35,6 +35,8 @@ export default class GameScene extends Phaser.Scene {
         this.wood = 12;
         this.score = 0;
         this.wave = 1;
+        // run stats (shown on game over)
+        this.stats = { treesChopped: 0, enemiesKilled: 0, woodSpent: 0 };
         this.phase = 'day';            // 'day' | 'night'
         this.phaseEnd = this.time.now + DAY_SECONDS * 1000;
         this.phaseDuration = DAY_SECONDS;
@@ -94,6 +96,10 @@ export default class GameScene extends Phaser.Scene {
             .setBlendMode(Phaser.BlendModes.ADD).setDepth(901).setAlpha(0).setScale(2.4);
         // vignette for a framed, cozy look (under the night overlay)
         this.add.image(W / 2, H / 2, 'vignette').setDisplaySize(W + 8, H + 8).setDepth(890);
+        // red warning vignette that pulses when the fire is running low at night
+        this.lowFuelVignette = this.add.image(W / 2, H / 2, 'vignette')
+            .setDisplaySize(W + 8, H + 8).setDepth(905).setTint(0xff2020).setAlpha(0);
+        this.lowFuelCd = 0;
 
         this.createHUD();
         this.createControls();
@@ -652,6 +658,7 @@ export default class GameScene extends Phaser.Scene {
             const mills = this.buildCounts.sagbruk;
             const yield_ = 3 + this.treeBonus + mills + (t.woodBonus || 0);
             this.wood += yield_;
+            this.stats.treesChopped++;
             this.sfx.treeFall();
             this.floatText(t.x, t.y - 20, `+${yield_} 🪵`, '#ffd166');
             t.alive = false;
@@ -675,6 +682,7 @@ export default class GameScene extends Phaser.Scene {
     hitEnemy(e) {
         if (e.dead) return;
         e.hp -= this.axeDmg;
+        this.dmgNumber(e.x, e.y - 14, this.axeDmg);
         this.sfx.hitEnemy();
         e.setTintFill(0xffffff);
         this.time.delayedCall(70, () => { if (e.active) e.clearTint(); });
@@ -686,6 +694,8 @@ export default class GameScene extends Phaser.Scene {
 
     killEnemy(e) {
         e.dead = true;
+        this.stats.enemiesKilled++;
+        this.hitStop(55);
         this.sfx.enemyDie();
         this.score += 10 + this.wave;
         this.wood += this.killWood;
@@ -701,6 +711,7 @@ export default class GameScene extends Phaser.Scene {
         if (this.wood < FEED_COST) { this.sfx.deny(); this.floatText(FIRE.x, FIRE.y - 40, 'Mangler ved!', '#ff6b6b'); return; }
         if (this.fuel >= this.fuelMax) { this.floatText(FIRE.x, FIRE.y - 40, 'Bålet er fullt', '#cfe3d4'); return; }
         this.wood -= FEED_COST;
+        this.stats.woodSpent += FEED_COST;
         this.fuel = Math.min(this.fuelMax, this.fuel + FEED_FUEL);
         this.sfx.feed();
         this.burst(FIRE.x, FIRE.y, 'ember', 10);
@@ -943,6 +954,7 @@ export default class GameScene extends Phaser.Scene {
         if (this.wood < cost) { this.sfx.deny(); this.floatText(W / 2, 130, 'For lite ved!', '#ff6b6b'); return; }
 
         this.wood -= cost;
+        this.stats.woodSpent += cost;
         this.buildCounts[item.key]++;
         slot.taken = true;
         this.spawnStructure(item.key, slot);
@@ -1026,6 +1038,7 @@ export default class GameScene extends Phaser.Scene {
                     // explosion: damage the whole cluster
                     this.burst(ix, iy, 'ember', 18);
                     this.cameras.main.shake(90, 0.005);
+                    this.hitStop(60);
                     // expanding shockwave ring sized to the splash radius
                     const ring = this.add.circle(ix, iy, spec.splash, 0xffae42, 0.28)
                         .setDepth(1290).setScale(0.3);
@@ -1055,6 +1068,7 @@ export default class GameScene extends Phaser.Scene {
     hurtEnemy(e, dmg) {
         if (e.dead) return;
         e.hp -= dmg;
+        this.dmgNumber(e.x, e.y - 14, dmg);
         if (e.hp <= 0) this.killEnemy(e);
     }
 
@@ -1158,6 +1172,12 @@ export default class GameScene extends Phaser.Scene {
             return;
         }
 
+        // hit-stop: briefly freeze the sim on big impacts (tweens keep playing)
+        if (time < (this.hitStopUntil || 0)) {
+            this.phaseEnd += delta;   // don't burn the phase clock during the freeze
+            return;
+        }
+
         this.handleMovement(dt);
         // hold swing button (or space) to keep swinging automatically
         if (this.swingHeld || this.keys.SPACE.isDown) this.swing();
@@ -1187,6 +1207,18 @@ export default class GameScene extends Phaser.Scene {
             const drain = (1.1 + (this.wave - 1) * 0.45) * this.fuelDrainMult;
             this.fuel = Math.max(0, this.fuel - drain * dt);
             if (this.fuel <= 0) { this.gameOver('Bålet slukna i mørket'); return; }
+        }
+
+        // low-fuel warning: pulsing red vignette + alarm beep when the fire is dying
+        const lowFuel = this.phase === 'night' && this.fuel / this.fuelMax < 0.22;
+        if (lowFuel) {
+            const danger = 1 - (this.fuel / this.fuelMax) / 0.22;          // 0→1 as it empties
+            const pulse = 0.18 + 0.22 * (0.5 + 0.5 * Math.sin(time / 130)) * danger;
+            this.lowFuelVignette.setAlpha(Phaser.Math.Linear(this.lowFuelVignette.alpha, pulse, 0.2));
+            const beat = 700 - 450 * danger;                              // beeps quicken as it worsens
+            if (time > this.lowFuelCd) { this.lowFuelCd = time + beat; this.sfx.lowFuel(); }
+        } else {
+            this.lowFuelVignette.setAlpha(Phaser.Math.Linear(this.lowFuelVignette.alpha, 0, 0.15));
         }
 
         // phase timer
@@ -1351,6 +1383,21 @@ export default class GameScene extends Phaser.Scene {
         this.tweens.add({ targets: t, y: y - 36, alpha: 0, duration: 900, onComplete: () => t.destroy() });
     }
 
+    // punchy red damage number that pops in over an enemy
+    dmgNumber(x, y, amount) {
+        const t = this.add.text(x + Phaser.Math.Between(-7, 7), y - 6, `${Math.round(amount)}`, {
+            fontSize: '18px', fontFamily: 'Arial', fontStyle: 'bold',
+            color: '#ffffff', stroke: '#7a1212', strokeThickness: 4
+        }).setOrigin(0.5).setDepth(1600).setScale(0.5);
+        this.tweens.add({ targets: t, scale: 1, duration: 110, ease: 'Back.out' });
+        this.tweens.add({ targets: t, y: t.y - 30, alpha: 0, duration: 620, delay: 110, onComplete: () => t.destroy() });
+    }
+
+    // brief freeze-frame for impact — pauses the sim while juice tweens play on
+    hitStop(ms) {
+        this.hitStopUntil = Math.max(this.hitStopUntil || 0, this.time.now + ms);
+    }
+
     burst(x, y, key, count) {
         for (let i = 0; i < count; i++) {
             const p = this.add.image(x, y, key).setDepth(1400);
@@ -1486,12 +1533,17 @@ export default class GameScene extends Phaser.Scene {
         c.add(this.add.text(W / 2, 218, reason, {
             fontSize: '16px', fontFamily: 'Arial', color: '#cfe3d4'
         }).setOrigin(0.5));
-        c.add(this.add.text(W / 2, 290,
+        c.add(this.add.text(W / 2, 286,
             `Du nådde natt ${this.wave}\nPoeng: ${this.score}\nBeste: ${this.finalBest}`, {
             fontSize: '20px', fontFamily: 'Arial', color: '#ffffff', align: 'center', lineSpacing: 8
         }).setOrigin(0.5));
+        const s = this.stats;
+        c.add(this.add.text(W / 2, 348,
+            `🌲 ${s.treesChopped} trær hugget   ⚔ ${s.enemiesKilled} fiender felt\n🪵 ${s.woodSpent} ved brukt`, {
+            fontSize: '14px', fontFamily: 'Arial', color: '#ffd9a0', align: 'center', lineSpacing: 6
+        }).setOrigin(0.5));
         const nextAt = (milestonesUnlocked(this.wave) + 1) * 5;
-        c.add(this.add.text(W / 2, 372,
+        c.add(this.add.text(W / 2, 392,
             `👤 ${p.name} · ${p.runs} runder · ${perkCount(p)} boosts\nNeste belønning: nå natt ${nextAt}`, {
             fontSize: '13px', fontFamily: 'Arial', color: '#9fd0ff', align: 'center', lineSpacing: 5
         }).setOrigin(0.5));

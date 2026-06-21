@@ -130,4 +130,5 @@ export class SoundFX {
     nightStart() { this.voice(196, 0.8, { type: 'sine', vol: 0.34, slideTo: 147, attack: 0.15, reverb: true, rich: true }); }
     dayStart()   { this.arp([440, 554, 659], 0.1, { type: 'sine', vol: 0.34, reverb: true }); }
     gameOver()   { this.voice(330, 1.1, { type: 'sine', vol: 0.4, slideTo: 90, attack: 0.04, reverb: true, rich: true }); }
+    lowFuel()    { this.voice(440, 0.13, { type: 'triangle', vol: 0.2, slideTo: 320 }); }
 }
