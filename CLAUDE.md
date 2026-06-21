@@ -80,21 +80,24 @@ upgrades, shop/building, phases (day/night), and `update()`.
   to range; axe power → player aura (white→gold→orange→red) + size + slash tint;
   boots → dust trails; bigger fire → glow scales with `fuelMax`.
 - **Shop/building** (`shopItems`, `buyStructure`, `spawnStructure`): fences
-  (block enemies), watchtowers (auto-shoot), ice cannons (slow), mortars (AoE
-  splash), spike traps (passive AoE), huts (HP regen), sawmills (each adds +1
-  wood per felled tree and speeds tree regrowth ~25%).
-  Placed into fixed `slots` (radial rings relative to FIRE, see `createSlots`).
-  Active buildings share `updateStructures()` + `GameScene.SPEC` (cd/range/dmg/
-  slow/splash/trap). Day only.
+  (sturdy 300-hp palisade that blocks enemies; **flat price** — items can set
+  `flat: true` so `shopCost` skips the 1.4^count scaling), watchtowers
+  (auto-shoot), ice cannons (slow), mortars (AoE splash), spike traps (passive
+  AoE), huts (HP regen), sawmills (each adds +1 wood per felled tree and speeds
+  tree regrowth ~25%). Placed into fixed `slots` (radial rings relative to FIRE,
+  see `createSlots`). Active buildings share `updateStructures()` +
+  `GameScene.SPEC` (cd/range/dmg/slow/splash/trap). Day only.
 - **Fire/fuel**: drains at night; `feedFire()` converts wood→fuel. Light/darkness
   is a dark overlay + additive glow scaled by fuel ratio.
 - **Enemies**: spawn at edges, path to the fire (attack a blocking fence first,
-  or the player if in the way), gnaw the fire's fuel when they reach it. Three
-  types (see `spawnEnemy` spec table): `shade` (basic); a new variant unlocks
-  every 2 nights starting at night 5 — `brute` (slow, tanky, big) from night 5,
-  `flyer` (fast, fragile, flies *over* fences, flapping wings) from night 7.
-  Ice-cannon-frozen enemies are tinted icy light-blue
-  (`setTintFill(0xaee9ff)`) and slowed while `slowUntil` is active.
+  or the player if in the way), gnaw the fire's fuel when they reach it. Types
+  (see `spawnEnemy` spec table): `shade` (basic); tougher variants unlock as the
+  nights escalate — `brute` (slow, tanky) at 5, `flyer` (fast, fragile, flies
+  *over* fences) at 7, `revenant` (armoured crimson bruiser) at 10, `wraith`
+  (fast green specter) at 15, `titan` (hulking boss) at 20. `specialChance` and
+  base hp/dmg ramp with the wave (extra ramp after night 8) so late game stays
+  threatening; pick is biased toward the newest/toughest variants. Ice-cannon-
+  frozen enemies are tinted icy light-blue and slowed while `slowUntil` is active.
 - **Characters + meta-progression** (`src/utils/Characters.js`, localStorage
   `emberwood_characters`): a roster of characters, each with an appearance
   (gender/skin/hair/shirt indices into palettes) and its own perks/bestNight/runs.

@@ -187,6 +187,42 @@ export default class GameScene extends Phaser.Scene {
         g.fillStyle(0x5b76c8, 0.7); g.fillTriangle(11, 22, 16, 30, 21, 22);             // wispy tail
         g.generateTexture('flyer', 32, 32); g.clear();
 
+        // revenant – armoured crimson bruiser with burning eyes (night 10+)
+        g.fillStyle(0x000000, 0.18); g.fillEllipse(20, 41, 34, 8);                      // shadow
+        g.fillStyle(0x20121a, 1); g.fillTriangle(6, 9, 11, -2, 16, 10);                 // horns
+        g.fillTriangle(24, 10, 29, -2, 34, 9);
+        g.fillStyle(0x3a1420, 1); g.fillRoundedRect(6, 12, 28, 28, 7);                  // dark crimson body
+        g.fillStyle(0x5a1e2e, 1); g.fillRoundedRect(6, 12, 28, 12, 7);                  // lighter top
+        g.fillStyle(0x7a1010, 1); g.fillRect(11, 26, 4, 11); g.fillRect(25, 26, 4, 11); // glowing cracks
+        g.fillStyle(0xff7a1e, 1); g.fillCircle(15, 22, 3); g.fillCircle(25, 22, 3);     // burning eyes
+        g.fillStyle(0xffe0b0, 1); g.fillCircle(14, 21, 1); g.fillCircle(24, 21, 1);
+        g.fillStyle(0x8a8f99, 1); g.fillRect(13, 33, 14, 3);                            // iron jaw
+        g.generateTexture('revenant', 40, 46); g.clear();
+
+        // wraith – fast sickly-green specter that streaks toward the fire (night 15+)
+        g.fillStyle(0x000000, 0.12); g.fillEllipse(16, 36, 20, 6);                      // faint shadow
+        g.fillStyle(0x1d4a3a, 0.7); g.fillTriangle(6, 30, 16, 40, 26, 30);              // wispy tail
+        g.fillStyle(0x247a5a, 1); g.fillCircle(16, 16, 11);                             // body
+        g.fillStyle(0x39a878, 1); g.fillCircle(16, 12, 8);
+        g.fillStyle(0x39a878, 0.55); g.fillTriangle(3, 11, 12, 16, 5, 23);              // side wisps
+        g.fillTriangle(29, 11, 20, 16, 27, 23);
+        g.fillStyle(0xaef0c8, 1); g.fillCircle(12, 15, 3); g.fillCircle(20, 15, 3);     // pale eyes
+        g.fillStyle(0x062018, 1); g.fillCircle(12, 15, 1.4); g.fillCircle(20, 15, 1.4);
+        g.generateTexture('wraith', 32, 40); g.clear();
+
+        // titan – hulking boss with a third eye (night 20+)
+        g.fillStyle(0x000000, 0.22); g.fillEllipse(28, 52, 48, 11);                     // big shadow
+        g.fillStyle(0x140a22, 1); g.fillTriangle(6, 16, 12, -2, 20, 16);                // big horns
+        g.fillTriangle(36, 16, 44, -2, 50, 16);
+        g.fillStyle(0x241338, 1); g.fillCircle(28, 30, 22);                             // huge body
+        g.fillStyle(0x35205a, 1); g.fillCircle(28, 24, 19);
+        g.fillStyle(0x4d2f7e, 1); g.fillCircle(18, 18, 7);                              // highlight
+        g.fillStyle(0xff2b5b, 1); g.fillCircle(20, 28, 4); g.fillCircle(36, 28, 4);     // eyes
+        g.fillCircle(28, 20, 3);                                                        // third eye
+        g.fillStyle(0xffd0dd, 1); g.fillCircle(19, 27, 1.5); g.fillCircle(35, 27, 1.5);
+        g.fillStyle(0x6e1830, 1); g.fillRect(20, 40, 16, 4);                            // grim mouth
+        g.generateTexture('titan', 56, 58); g.clear();
+
         // wood chip particle
         g.fillStyle(0xb07a3c, 1); g.fillRect(0, 0, 6, 6);
         g.generateTexture('chip', 6, 6); g.clear();
@@ -874,7 +910,7 @@ export default class GameScene extends Phaser.Scene {
     // ---------------------------------------------------------------- shop / building
     shopItems() {
         return [
-            { key: 'gjerde', icon: '🚧', name: 'Gjerde', desc: 'Stopper fiender på vei mot bålet', base: 8 },
+            { key: 'gjerde', icon: '🚧', name: 'Gjerde', desc: 'Robust palisade som stopper fiender (fast pris)', base: 100, flat: true },
             { key: 'taarn', icon: '🗼', name: 'Vakttårn', desc: 'Skyter automatisk på fiender', base: 28 },
             { key: 'iskanon', icon: '🧊', name: 'Iskanon', desc: 'Fryser fiender så de går saktere', base: 40 },
             { key: 'bombekaster', icon: '💣', name: 'Bombekaster', desc: 'Splintskade på klynger av fiender', base: 52 },
@@ -885,6 +921,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     shopCost(item) {
+        if (item.flat) return item.base;     // fixed price — fair early and late
         return Math.round(item.base * Math.pow(1.4, this.buildCounts[item.key] || 0));
     }
 
@@ -979,7 +1016,7 @@ export default class GameScene extends Phaser.Scene {
         }[type];
         const s = this.add.image(slot.x, slot.y, tex).setDepth(slot.y);
         s.type = type; s.slot = slot; s.dead = false; s.cd = 0;
-        if (type === 'gjerde') { s.maxHp = 100; s.hp = 100; }
+        if (type === 'gjerde') { s.maxHp = 300; s.hp = 300; }   // sturdy palisade
         s.shadow = this.addShadow(slot.x, slot.y + 14, 32, 0.45, slot.y - 1);
         s.setScale(0.2);
         this.tweens.add({ targets: s, scale: 1, duration: 300, ease: 'Back.out' });
@@ -1091,10 +1128,10 @@ export default class GameScene extends Phaser.Scene {
         this.sfx.nightStart();
         this.banner(`🌙  NATT ${n}\nOverlev til daggry!`, 0x8ea0ff);
 
-        this.nightTotal = 4 + (n - 1) * 2;
+        this.nightTotal = 4 + Math.round((n - 1) * 2.5);
         this.nightSpawned = 0;
         this.nightEnding = false;
-        const interval = Math.max(600, 1500 - n * 110);
+        const interval = Math.max(480, 1500 - n * 110);
         this.spawnTimer = this.time.addEvent({
             delay: interval, loop: true, callback: () => {
                 if (this.nightSpawned >= this.nightTotal || this.phase !== 'night') return;
@@ -1135,23 +1172,39 @@ export default class GameScene extends Phaser.Scene {
 
         const n = this.wave;
 
-        // pick a type — a new variant unlocks every 2 nights starting at night 5
-        // (brute from 5, flyer from 7) so they're never introduced all at once
+        // pick a type — a tougher variant unlocks at every 5th night, plus the
+        // fragile flyer at 7, so the threat keeps escalating instead of plateauing
         const unlocked = ['shade'];
         if (n >= 5) unlocked.push('brute');
         if (n >= 7) unlocked.push('flyer');
+        if (n >= 10) unlocked.push('revenant');
+        if (n >= 15) unlocked.push('wraith');
+        if (n >= 20) unlocked.push('titan');
         let type = 'shade';
-        const r = Math.random();
-        // ~45% chance to be a special type once any are unlocked
-        if (unlocked.length > 1 && r < 0.45) {
-            type = unlocked[1 + Math.floor(Math.random() * (unlocked.length - 1))];
+        // chance to be a special type grows as the nights wear on
+        const specialChance = Math.min(0.72, 0.4 + (n - 5) * 0.025);
+        if (unlocked.length > 1 && Math.random() < specialChance) {
+            // bias toward the newest (toughest) variants in the later nights
+            const specials = unlocked.slice(1);
+            const idx = Math.random() < 0.5
+                ? specials.length - 1 - Math.floor(Math.random() * Math.min(2, specials.length))
+                : Math.floor(Math.random() * specials.length);
+            type = specials[idx];
         }
 
-        const base = { hp: 10 + (n - 1) * 6, speed: 28 + (n - 1) * 4, dmg: 4 + (n - 1) * 2 };
+        // base stats ramp harder after night 8 so late game stays threatening
+        const base = {
+            hp: 10 + (n - 1) * 6 + Math.max(0, n - 8) * 6,
+            speed: 28 + (n - 1) * 4,
+            dmg: 4 + (n - 1) * 2 + Math.max(0, n - 8) * 1
+        };
         const spec = {
-            shade: { tex: 'enemy', hp: 1, speed: 1, dmg: 1, scale: 1 },
-            brute: { tex: 'brute', hp: 2.6, speed: 0.55, dmg: 1.7, scale: 1.4 },
-            flyer: { tex: 'flyer', hp: 0.55, speed: 1.5, dmg: 0.9, scale: 0.95, flies: true }
+            shade:    { tex: 'enemy',    hp: 1,    speed: 1,    dmg: 1,   scale: 1 },
+            brute:    { tex: 'brute',    hp: 2.6,  speed: 0.55, dmg: 1.7, scale: 1.4 },
+            flyer:    { tex: 'flyer',    hp: 0.55, speed: 1.5,  dmg: 0.9, scale: 0.95, flies: true },
+            revenant: { tex: 'revenant', hp: 3.6,  speed: 0.85, dmg: 2.1, scale: 1.3 },
+            wraith:   { tex: 'wraith',   hp: 1.2,  speed: 1.75, dmg: 1.5, scale: 1.05 },
+            titan:    { tex: 'titan',    hp: 6.5,  speed: 0.5,  dmg: 2.8, scale: 1.7 }
         }[type];
 
         const e = this.add.image(x, y, spec.tex).setDepth(y);
@@ -1337,7 +1390,10 @@ export default class GameScene extends Phaser.Scene {
                     e.hitCd = time + 600;
                     fence.hp -= e.dmg;
                     fence.setTintFill(0xff8888);
-                    this.time.delayedCall(80, () => { if (fence.active) fence.clearTint(); });
+                    const f = fence;   // capture for the delayed restore
+                    this.time.delayedCall(80, () => {
+                        if (f.active) { f.clearTint(); f.setAlpha(0.45 + 0.55 * Math.max(0, f.hp) / f.maxHp); }
+                    });
                     this.sfx.hitEnemy();
                     if (fence.hp <= 0) this.destroyStructure(fence);
                 }
