@@ -120,6 +120,26 @@ export default class GameScene extends Phaser.Scene {
         g.fillStyle(0x73d178, 1); g.fillCircle(24, 12, 5);                              // top glint
         g.generateTexture('tree', 52, 66); g.clear();
 
+        // tough tree (oak) – sturdier trunk, bronze/golden autumn canopy
+        g.fillStyle(0x4a2d12, 1); g.fillRect(21, 38, 11, 24);                           // thick trunk shade
+        g.fillStyle(0x5e3a1c, 1); g.fillRect(22, 38, 6, 24);                            // trunk
+        g.fillStyle(0x6b4a16, 1); g.fillCircle(26, 29, 20);                             // dark bronze base
+        g.fillStyle(0x8a6b1e, 1); g.fillCircle(26, 23, 20);
+        g.fillStyle(0xb9912b, 1); g.fillCircle(18, 18, 12);                             // golden highlight
+        g.fillStyle(0xd8b54a, 1); g.fillCircle(32, 14, 9);
+        g.fillStyle(0xf0d873, 1); g.fillCircle(24, 11, 5);                              // top glint
+        g.generateTexture('tree_oak', 52, 66); g.clear();
+
+        // ancient tree – dark gnarled pine, deep teal foliage with a frosty crown
+        g.fillStyle(0x3a2a14, 1); g.fillRect(20, 36, 13, 26);                           // heavy trunk shade
+        g.fillStyle(0x4d3a1e, 1); g.fillRect(21, 36, 7, 26);                            // trunk
+        g.fillStyle(0x123a2c, 1); g.fillCircle(26, 30, 21);                             // very dark base
+        g.fillStyle(0x18514a, 1); g.fillCircle(26, 22, 21);
+        g.fillStyle(0x2f7d72, 1); g.fillCircle(18, 17, 13);                             // teal highlight
+        g.fillStyle(0x57b0a3, 1); g.fillCircle(32, 13, 9);
+        g.fillStyle(0x9fe6d6, 1); g.fillCircle(24, 10, 5);                              // frosty glint
+        g.generateTexture('tree_ancient', 52, 66); g.clear();
+
         // stump
         g.fillStyle(0x5a3819, 1); g.fillRect(4, 8, 16, 11);
         g.fillStyle(0x6b4423, 1); g.fillRect(4, 6, 16, 4);
@@ -331,12 +351,37 @@ export default class GameScene extends Phaser.Scene {
             .filter(p => Phaser.Math.Distance.Between(p.x, p.y, FIRE.x, FIRE.y) > 95);
     }
 
+    // tougher tree variants. As the nights go on, more trees grow in as oaks
+    // (sturdier) or ancient pines (toughest) — they take more hits but drop more
+    // wood. Returns 0 = normal, 1 = oak, 2 = ancient.
+    rollTreeTier() {
+        const w = this.wave;
+        const ancient = Math.min(0.40, (w - 3) * 0.08);   // toughest, from ~night 4
+        const oak = Math.min(0.70, (w - 1) * 0.12);        // sturdy, from night 2
+        const r = Math.random();
+        if (r < ancient) return 2;
+        if (r < oak) return 1;
+        return 0;
+    }
+
+    applyTreeTier(t, tier) {
+        const spec = [
+            { tex: 'tree',         hp: 8,  wood: 0 },
+            { tex: 'tree_oak',     hp: 18, wood: 3 },
+            { tex: 'tree_ancient', hp: 32, wood: 7 },
+        ][tier];
+        t.tier = tier;
+        t.woodBonus = spec.wood;
+        t.maxHp = spec.hp; t.hp = spec.hp;
+        t.setTexture(spec.tex);
+    }
+
     createTrees() {
         this.treeSpots().forEach((spot, i) => {
             this.addShadow(spot.x, spot.y + 28, 40, 0.5, spot.y - 1);
             const t = this.add.image(spot.x, spot.y, 'tree').setDepth(spot.y);
-            t.homeX = spot.x; t.homeY = spot.y;
-            t.maxHp = 8; t.hp = 8; t.alive = true;
+            t.homeX = spot.x; t.homeY = spot.y; t.alive = true;
+            this.applyTreeTier(t, this.rollTreeTier());
             // gentle idle sway (anchored near the base so it looks rooted)
             t.setAngle(-1.5);
             this.tweens.add({
@@ -605,7 +650,7 @@ export default class GameScene extends Phaser.Scene {
         if (t.hp <= 0) {
             // sawmills boost wood per tree and speed up regrowth
             const mills = this.buildCounts.sagbruk;
-            const yield_ = 3 + this.treeBonus + mills;
+            const yield_ = 3 + this.treeBonus + mills + (t.woodBonus || 0);
             this.wood += yield_;
             this.sfx.treeFall();
             this.floatText(t.x, t.y - 20, `+${yield_} 🪵`, '#ffd166');
@@ -619,8 +664,10 @@ export default class GameScene extends Phaser.Scene {
 
     regrow(t) {
         if (this.gameIsOver) return;
-        t.setTexture('tree').setPosition(t.homeX, t.homeY).setDepth(t.homeY);
-        t.hp = t.maxHp; t.alive = true;
+        // re-roll the tier on regrowth so the forest hardens as nights pass
+        this.applyTreeTier(t, this.rollTreeTier());
+        t.setPosition(t.homeX, t.homeY).setDepth(t.homeY);
+        t.alive = true;
         t.setScale(0.2);
         this.tweens.add({ targets: t, scale: 1, duration: 400, ease: 'Back.out' });
     }
