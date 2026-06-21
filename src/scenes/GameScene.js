@@ -13,6 +13,7 @@ const PLAY_TOP = 120;      // play area starts below HUD
 let PLAY_BOTTOM = 610;     // ...and ends above controls (set in create)
 const FEED_COST = 5;
 const FEED_FUEL = 18;
+const FEED_CD = 280;       // ms between feeds (button recharges visibly)
 
 export default class GameScene extends Phaser.Scene {
     constructor() {
@@ -504,6 +505,30 @@ export default class GameScene extends Phaser.Scene {
         return { x: ox + ix * C, y: oy + iy * C };
     }
 
+    // pick a free grid cell to pre-suggest when building — valid (never occupied)
+    // and spread out from existing buildings, kept in a useful band near the fire
+    suggestCell() {
+        const C = GameScene.CELL, ox = FIRE.x, oy = FIRE.y;
+        const minIx = Math.ceil((26 - ox) / C), maxIx = Math.floor((W - 26 - ox) / C);
+        const minIy = Math.ceil((PLAY_TOP + 26 - oy) / C), maxIy = Math.floor((PLAY_BOTTOM - 12 - oy) / C);
+        let best = null, bestScore = -Infinity;
+        for (let ix = minIx; ix <= maxIx; ix++) {
+            for (let iy = minIy; iy <= maxIy; iy++) {
+                const x = ox + ix * C, y = oy + iy * C;
+                if (!this.placeValid(x, y)) continue;          // skip fire/buttons/occupied
+                let minD = 200;
+                for (const s of this.structures) {
+                    if (s.dead) continue;
+                    minD = Math.min(minD, Phaser.Math.Distance.Between(x, y, s.x, s.y));
+                }
+                const fire = Phaser.Math.Distance.Between(x, y, ox, oy);
+                const score = minD - 0.5 * Math.abs(fire - 120);   // spread, but hug the base
+                if (score > bestScore) { bestScore = score; best = { x, y }; }
+            }
+        }
+        return best || this.snapToGrid(ox, oy + 110);
+    }
+
     // is (x,y) a legal place to build? not on the fire, not on top of another
     // build, and not under the control buttons (so taps there stay unambiguous)
     placeValid(x, y) {
@@ -578,10 +603,13 @@ export default class GameScene extends Phaser.Scene {
         this.swingBtn.on('pointerout', () => { this.swingBtn.setScale(1); this.swingHeld = false; });
 
         // Feed button
+        this.feedBtnPos = { x: feedX, y: feedY, r: 34 };
         this.feedBtn = this.add.circle(feedX, feedY, 34, 0x2a6b3a, 0.58)
             .setStrokeStyle(3, 0xffd166).setScrollFactor(0).setDepth(3000)
             .setInteractive({ useHandCursor: true });
-        this.add.text(feedX, feedY, '🔥', { fontSize: '24px' }).setOrigin(0.5).setDepth(3001).setAlpha(0.92);
+        this.feedIcon = this.add.text(feedX, feedY, '🔥', { fontSize: '24px' }).setOrigin(0.5).setDepth(3001).setAlpha(0.92);
+        // dark wedge that shrinks as the button recharges after a feed
+        this.feedCdG = this.add.graphics().setScrollFactor(0).setDepth(3002);
         this.feedBtn.on('pointerdown', () => { this.feedBtn.setScale(0.9); this.feedFire(); });
         this.feedBtn.on('pointerup', () => this.feedBtn.setScale(1));
         this.feedBtn.on('pointerout', () => this.feedBtn.setScale(1));
@@ -766,10 +794,33 @@ export default class GameScene extends Phaser.Scene {
         this.updateHUD();
     }
 
+    // disable + visibly recharge the feed button during its cooldown
+    updateFeedButton() {
+        if (!this.feedCdG) return;
+        const { x, y, r } = this.feedBtnPos;
+        const remain = (this.feedCd || 0) - this.time.now;
+        const g = this.feedCdG;
+        g.clear();
+        if (remain > 0) {
+            const ratio = 1 - remain / FEED_CD;          // 0 → just fed, 1 → ready
+            this.feedBtn.setFillStyle(0x223a2b, 0.58);   // dimmed while cooling
+            this.feedIcon.setAlpha(0.35);
+            // dark wedge over the part not yet recharged (fills clockwise from top)
+            g.fillStyle(0x05140a, 0.6);
+            g.slice(x, y, r - 2, Phaser.Math.DegToRad(-90 + ratio * 360), Phaser.Math.DegToRad(270), false);
+            g.fillPath();
+        } else {
+            this.feedBtn.setFillStyle(0x2a6b3a, 0.58);    // ready
+            this.feedIcon.setAlpha(0.92);
+        }
+    }
+
     feedFire() {
         if (this.gameIsOver || this.menuOpen) return;
+        if (this.time.now < (this.feedCd || 0)) return;   // small cooldown — no spamming
         if (this.wood < FEED_COST) { this.sfx.deny(); this.floatText(FIRE.x, FIRE.y - 40, 'Mangler ved!', '#ff6b6b'); return; }
         if (this.fuel >= this.fuelMax) { this.floatText(FIRE.x, FIRE.y - 40, 'Bålet er fullt', '#cfe3d4'); return; }
+        this.feedCd = this.time.now + FEED_CD;
         this.wood -= FEED_COST;
         this.stats.woodSpent += FEED_COST;
         this.fuel = Math.min(this.fuelMax, this.fuel + FEED_FUEL);
@@ -1040,7 +1091,7 @@ export default class GameScene extends Phaser.Scene {
 
         const tex = this.structTex(item.key);
         const spec = GameScene.SPEC[item.key];
-        const start = this.snapToGrid(FIRE.x, FIRE.y + 110);
+        const start = this.suggestCell();    // pre-suggest a free, spread-out cell
         const ring = this.add.circle(start.x, start.y, spec ? spec.range : 24, 0xffd166, 0.10)
             .setStrokeStyle(2, 0xffe08a, 0.7);
         if (!spec) ring.setVisible(false);
@@ -1087,7 +1138,7 @@ export default class GameScene extends Phaser.Scene {
         buildBtn.on('pointerup', () => {
             if (!sel.ok) { this.sfx.deny(); this.floatText(sel.x, sel.y - 20, 'Ugyldig rute', '#ff6b6b'); return; }
             this.tryPlace(sel.x, sel.y);
-            if (this.placing) move(sel);   // refresh validity (cell now occupied)
+            if (this.placing) move(this.suggestCell());   // jump to the next free spread-out cell
         });
         move({ x: start.x, y: start.y });
     }
@@ -1451,6 +1502,7 @@ export default class GameScene extends Phaser.Scene {
     update(time, delta) {
         if (this.gameIsOver) return;
         const dt = delta / 1000;
+        this.updateFeedButton();   // recharge visual ticks even while paused
 
         // pause world while choosing an upgrade card
         if (this.menuOpen) {
