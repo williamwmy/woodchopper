@@ -449,6 +449,9 @@ export default class GameScene extends Phaser.Scene {
         this.playerAura = this.add.image(FIRE.x, FIRE.y + 70, 'glow')
             .setBlendMode(Phaser.BlendModes.ADD).setDepth(499).setAlpha(0).setScale(0.4);
         this.playerShadow = this.addShadow(FIRE.x, FIRE.y + 88, 30, 0.6, 498);
+        // armor plating – a steel ring that thickens as armor is gained
+        this.armorRing = this.add.circle(FIRE.x, FIRE.y + 70, 18, 0x000000, 0)
+            .setStrokeStyle(2, 0xbcd0e6, 0).setDepth(501);
         this.player = this.add.image(FIRE.x, FIRE.y + 70, 'player').setDepth(500);
         this.walkPhase = 0;
         this.refreshPowerVisuals();
@@ -474,6 +477,20 @@ export default class GameScene extends Phaser.Scene {
 
         // the lumberjack himself bulks up a little
         this.player.setScale(1 + Math.min(0.22, axe * 0.05));
+
+        // armor ring – brighter & thicker steel as armor grows
+        if (this.armor > 0) {
+            const a = Math.min(0.95, 0.35 + this.armor * 0.05);
+            this.armorRing.setStrokeStyle(Math.min(6, 2.5 + this.armor * 0.3), 0xbcd0e6, a);
+        } else {
+            this.armorRing.setStrokeStyle(2, 0xbcd0e6, 0);
+        }
+
+        // feedback pulse when armor was just taken
+        if (changed === 'armor') {
+            const r = this.add.circle(this.player.x, this.player.y, 26, 0xbcd0e6, 0.35).setDepth(502);
+            this.tweens.add({ targets: r, alpha: 0, scale: 1.4, duration: 480, onComplete: () => r.destroy() });
+        }
 
         // slash visuals
         this.slashColor = color;
@@ -604,6 +621,25 @@ export default class GameScene extends Phaser.Scene {
         this.swingBtn.on('pointerup', () => { this.swingBtn.setScale(1); this.swingHeld = false; });
         this.swingBtn.on('pointerout', () => { this.swingBtn.setScale(1); this.swingHeld = false; });
 
+        // Auto-attack toggle — swing on its own so you can play one-handed
+        this.autoAttack = localStorage.getItem('emberwood_autoattack') === '1';
+        const autoX = swingX - 84, autoY = swingY + 18;
+        this.autoBtnPos = { x: autoX, y: autoY, r: 28 };
+        this.autoBtn = this.add.circle(autoX, autoY, 28, 0x2a6b3a, 0.55)
+            .setStrokeStyle(3, 0xffd166).setScrollFactor(0).setDepth(3000)
+            .setInteractive({ useHandCursor: true });
+        this.autoBtnLabel = this.add.text(autoX, autoY, 'AUTO', {
+            fontSize: '12px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+        }).setOrigin(0.5).setDepth(3001);
+        this.autoBtn.on('pointerup', () => {
+            this.autoAttack = !this.autoAttack;
+            localStorage.setItem('emberwood_autoattack', this.autoAttack ? '1' : '0');
+            this.sfx.ensure(); this.sfx.build();
+            this.refreshAutoBtn();
+            this.floatText(autoX, autoY - 36, this.autoAttack ? 'Auto-hugg PÅ' : 'Auto-hugg AV', '#ffd166');
+        });
+        this.refreshAutoBtn();
+
         // Feed button
         this.feedBtnPos = { x: feedX, y: feedY, r: 34 };
         this.feedBtn = this.add.circle(feedX, feedY, 34, 0x2a6b3a, 0.58)
@@ -634,8 +670,16 @@ export default class GameScene extends Phaser.Scene {
     onButton(px, py) {
         const near = (b, r) => Phaser.Math.Distance.Between(px, py, b.x, b.y) < r;
         return near(this.swingBtn, 64) || near(this.feedBtn, 44) || near(this.pauseBtn, 26) ||
+               near(this.autoBtn, 32) ||
                (this.shopBtn.visible && near(this.shopBtn, 40)) ||
                Phaser.Math.Distance.Between(px, py, FIRE.x, FIRE.y) < 40;
+    }
+
+    refreshAutoBtn() {
+        const on = this.autoAttack;
+        this.autoBtn.setFillStyle(on ? 0xc1440e : 0x2a3a2a, on ? 0.85 : 0.45);
+        this.autoBtn.setStrokeStyle(3, on ? 0xffd166 : 0x6b7d52);
+        this.autoBtnLabel.setColor(on ? '#fff3c4' : '#9fb08a').setAlpha(on ? 1 : 0.7);
     }
 
     // during the day, a tap on an upgradeable tower opens its menu — don't also
@@ -1192,9 +1236,27 @@ export default class GameScene extends Phaser.Scene {
         if (GameScene.SPEC[type] || type === 'gjerde') {
             s.setInteractive({ useHandCursor: true });
             s.on('pointerup', () => this.openUpgrade(s));
+            // a level badge that appears once it's been upgraded
+            s.lvlBadge = this.add.text(p.x, p.y - 22, '', {
+                fontSize: '12px', fontFamily: 'Arial', fontStyle: 'bold', color: '#1a1208',
+                backgroundColor: '#ffd166', padding: { x: 4, y: 1 }
+            }).setOrigin(0.5).setDepth(p.y + 2).setVisible(false);
+            this.refreshStructLevel(s);
         }
         this.structures.push(s);
         return s;
+    }
+
+    // show a tower/fence's level: badge + a hotter gold tint & slight size as it climbs
+    refreshStructLevel(s) {
+        const lvl = s.lvl || 1;
+        if (s.lvlBadge) s.lvlBadge.setText(`Lv${lvl}`).setVisible(lvl >= 2);
+        // tint only non-fences (fences flash red on hit and would lose a tint)
+        if (s.type !== 'gjerde') {
+            const tints = [0xffffff, 0xffe9b0, 0xffd166, 0xffb43a, 0xff8c1a];
+            s.setTint(tints[Math.min(lvl - 1, 4)]);
+            if (lvl >= 2) s.setScale(1 + (lvl - 1) * 0.07);   // don't clobber the spawn pop-in
+        }
     }
 
     // ---- tower upgrades: another place to sink wood ----
@@ -1266,9 +1328,10 @@ export default class GameScene extends Phaser.Scene {
             if (this.wood < cost) { this.sfx.deny(); this.floatText(W / 2, H / 2 + 80, 'For lite ved!', '#ff6b6b'); return; }
             this.wood -= cost; this.stats.woodSpent += cost; s.lvl++;
             if (isFence) { s.maxHp = this.fenceHp(s.lvl); s.hp = s.maxHp; s.setAlpha(1); }   // forsterk + reparer
+            this.refreshStructLevel(s);   // badge + level tint/size
             this.sfx.upgrade();
             this.burst(s.x, s.y, 'ember', 10);
-            this.tweens.add({ targets: s, scale: 1.25, duration: 120, yoyo: true });
+            this.tweens.add({ targets: s, scaleX: s.scaleX * 1.25, scaleY: s.scaleY * 1.25, duration: 120, yoyo: true });
             this.updateHUD();
             closeUp();
         });
@@ -1286,6 +1349,7 @@ export default class GameScene extends Phaser.Scene {
         s.dead = true;
         if (s.type === 'gjerde') this.buildCounts.gjerde--;
         if (s.shadow) s.shadow.destroy();
+        if (s.lvlBadge) s.lvlBadge.destroy();
         this.burst(s.x, s.y, 'chip', 8);
         this.tweens.add({ targets: s, alpha: 0, scaleY: 0, duration: 200, onComplete: () => s.destroy() });
         this.structures = this.structures.filter(x => x !== s);
@@ -1521,7 +1585,7 @@ export default class GameScene extends Phaser.Scene {
 
         this.handleMovement(dt);
         // hold swing button (or space) to keep swinging automatically
-        if (this.swingHeld || this.keys.SPACE.isDown) this.swing();
+        if (this.autoAttack || this.swingHeld || this.keys.SPACE.isDown) this.swing();
         this.updateEnemies(dt, time);
         this.updateStructures(time);
 
@@ -1631,6 +1695,7 @@ export default class GameScene extends Phaser.Scene {
         // power aura + reach ring + shadow follow the player
         this.playerAura.setPosition(this.player.x, this.player.y).setDepth(this.player.depth - 1);
         this.reachRing.setPosition(this.player.x, this.player.y);
+        this.armorRing.setPosition(this.player.x, this.player.y + 4).setDepth(this.player.depth + 1);
         this.playerShadow.setPosition(this.player.x, this.player.y + 18).setDepth(this.player.depth - 2);
     }
 
