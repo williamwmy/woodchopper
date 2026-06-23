@@ -104,10 +104,15 @@ upgrades, shop/building, phases (day/night), and `update()`.
   (see `spawnEnemy` spec table): `shade` (basic); tougher variants unlock as the
   nights escalate — `brute` (slow, tanky) at 5, `flyer` (fast, fragile, flies
   *over* fences) at 7, `revenant` (armoured crimson bruiser) at 10, `wraith`
-  (fast green specter) at 15, `titan` (hulking boss) at 20. `specialChance` and
-  base hp/dmg ramp with the wave (extra ramp after night 8) so late game stays
-  threatening; pick is biased toward the newest/toughest variants. Ice-cannon-
-  frozen enemies are tinted icy light-blue and slowed while `slowUntil` is active.
+  (fast green specter) at 15, `titan` (hulking boss) at 20, `golem` (knockback-
+  immune stone) at 25, `stalker` (fast blade assassin) at 30, `warlock` (robed
+  caster) at 35, `behemoth` (colossal boss) at 40. `specialChance` and base
+  hp/dmg ramp with the wave (extra ramp after night 8); pick is biased toward the
+  newest/toughest variants. **Elite escalation** (`eliteChance`, from night 25):
+  a growing share spawn buffed (×1.7 hp, ×1.35 dmg, bigger) with a glowing red
+  `e.aura` glow that trails them — so it keeps climbing past night 40 even after
+  every type is out (clean up `e.aura` wherever the enemy is destroyed). Ice-
+  cannon-frozen enemies are tinted icy light-blue and slowed while `slowUntil`.
 - **Characters + meta-progression** (`src/utils/Characters.js`, localStorage
   `emberwood_characters`): a roster of characters, each with an appearance
   (gender/skin/hair/shirt indices into palettes) and its own perks/bestNight/runs.

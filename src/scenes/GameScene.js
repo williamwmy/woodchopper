@@ -227,6 +227,50 @@ export default class GameScene extends Phaser.Scene {
         g.fillStyle(0x6e1830, 1); g.fillRect(20, 40, 16, 4);                            // grim mouth
         g.generateTexture('titan', 56, 58); g.clear();
 
+        // golem – armoured stone bruiser, knockback-immune (night 25+)
+        g.fillStyle(0x000000, 0.2); g.fillEllipse(25, 47, 42, 10);                      // shadow
+        g.fillStyle(0x4a4f55, 1); g.fillRoundedRect(7, 12, 36, 34, 9);                  // stone body
+        g.fillStyle(0x5e656c, 1); g.fillRoundedRect(7, 12, 36, 14, 9);                  // lighter top
+        g.fillStyle(0x363b40, 1); g.fillRect(2, 24, 6, 16); g.fillRect(42, 24, 6, 16);  // arms
+        g.fillStyle(0x2a2e33, 1); g.fillRect(14, 30, 8, 3); g.fillRect(28, 30, 8, 3); g.fillRect(18, 38, 14, 3); // cracks
+        g.fillStyle(0xff8c2b, 1); g.fillRect(15, 21, 6, 4); g.fillRect(29, 21, 6, 4);   // molten eyes
+        g.fillStyle(0x7e868d, 1); g.fillCircle(13, 10, 4); g.fillCircle(37, 10, 4);     // shoulder lumps
+        g.generateTexture('golem', 50, 52); g.clear();
+
+        // stalker – sleek fast assassin with blade arms (night 30+)
+        g.fillStyle(0x000000, 0.14); g.fillEllipse(17, 37, 20, 6);                      // shadow
+        g.fillStyle(0x6e1422, 1); g.fillTriangle(2, 6, 10, 16, 2, 22);                  // left blade
+        g.fillTriangle(32, 6, 24, 16, 32, 22);                                          // right blade
+        g.fillStyle(0x3a0a14, 1); g.fillCircle(17, 18, 10);                             // body
+        g.fillStyle(0x5e1322, 1); g.fillCircle(17, 14, 7);
+        g.fillStyle(0xff3b5b, 1); g.fillCircle(13, 15, 2.5); g.fillCircle(21, 15, 2.5); // eyes
+        g.fillStyle(0xffd0dd, 1); g.fillCircle(13, 15, 1); g.fillCircle(21, 15, 1);
+        g.fillStyle(0x3a0a14, 0.7); g.fillTriangle(11, 24, 17, 32, 23, 24);             // tail
+        g.generateTexture('stalker', 34, 40); g.clear();
+
+        // warlock – robed caster wreathed in a glowing orb (night 35+)
+        g.fillStyle(0x000000, 0.16); g.fillEllipse(18, 41, 28, 8);                      // shadow
+        g.fillStyle(0x2a1640, 1); g.fillTriangle(6, 42, 18, 10, 30, 42);                // robe
+        g.fillStyle(0x3c2058, 1); g.fillTriangle(9, 42, 18, 16, 27, 42);                // robe inner
+        g.fillStyle(0x1c0f2c, 1); g.fillCircle(18, 12, 7);                              // hood
+        g.fillStyle(0x9a5bff, 1); g.fillCircle(18, 14, 3);                              // glowing face
+        g.fillStyle(0xc9a6ff, 1); g.fillCircle(18, 30, 5);                              // orb
+        g.fillStyle(0xe7d4ff, 1); g.fillCircle(18, 30, 2);
+        g.generateTexture('warlock', 36, 44); g.clear();
+
+        // behemoth – colossal boss, bigger than the titan (night 40+)
+        g.fillStyle(0x000000, 0.24); g.fillEllipse(32, 58, 54, 12);                     // shadow
+        g.fillStyle(0x140a22, 1); g.fillTriangle(4, 20, 12, -4, 22, 20);                // horns
+        g.fillTriangle(42, 20, 52, -4, 60, 20);
+        g.fillStyle(0x3a1422, 1); g.fillCircle(32, 34, 26);                             // body
+        g.fillStyle(0x52203a, 1); g.fillCircle(32, 27, 22);
+        g.fillStyle(0x6e2a4a, 1); g.fillCircle(20, 20, 8);                              // highlight
+        g.fillStyle(0xff2b3b, 1); g.fillCircle(22, 32, 5); g.fillCircle(42, 32, 5); g.fillCircle(32, 22, 4); // eyes
+        g.fillStyle(0xffd0c0, 1); g.fillCircle(21, 31, 1.6); g.fillCircle(41, 31, 1.6);
+        g.fillStyle(0x7a1020, 1); g.fillRect(22, 46, 20, 5);                            // mouth
+        g.fillStyle(0xffd23b, 1); g.fillRect(24, 46, 3, 4); g.fillRect(30, 46, 3, 4); g.fillRect(37, 46, 3, 4); // teeth
+        g.generateTexture('behemoth', 64, 64); g.clear();
+
         // wood chip particle
         g.fillStyle(0xb07a3c, 1); g.fillRect(0, 0, 6, 6);
         g.generateTexture('chip', 6, 6); g.clear();
@@ -612,33 +656,46 @@ export default class GameScene extends Phaser.Scene {
         const shopX = W - 58, shopY = H - 315;
         this.swingHeld = false;
 
-        // Swing button — hold to auto-swing (no repeated tapping)
+        // Swing button — hold to swing; drag down onto the lock to keep auto-swinging
         this.swingBtn = this.add.circle(swingX, swingY, 56, 0xc1440e, 0.6)
             .setStrokeStyle(4, 0xffd166).setScrollFactor(0).setDepth(3000)
             .setInteractive({ useHandCursor: true });
         this.add.text(swingX, swingY, '🪓', { fontSize: '42px' }).setOrigin(0.5).setDepth(3001).setAlpha(0.92);
-        this.swingBtn.on('pointerdown', () => { this.swingBtn.setScale(0.92); this.swingHeld = true; this.swing(); });
-        this.swingBtn.on('pointerup', () => { this.swingBtn.setScale(1); this.swingHeld = false; });
-        this.swingBtn.on('pointerout', () => { this.swingBtn.setScale(1); this.swingHeld = false; });
 
-        // Auto-attack toggle — swing on its own so you can play one-handed
-        this.autoAttack = localStorage.getItem('emberwood_autoattack') === '1';
-        const autoX = swingX - 84, autoY = swingY + 18;
-        this.autoBtnPos = { x: autoX, y: autoY, r: 28 };
-        this.autoBtn = this.add.circle(autoX, autoY, 28, 0x2a6b3a, 0.55)
-            .setStrokeStyle(3, 0xffd166).setScrollFactor(0).setDepth(3000)
-            .setInteractive({ useHandCursor: true });
-        this.autoBtnLabel = this.add.text(autoX, autoY, 'AUTO', {
-            fontSize: '12px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
-        }).setOrigin(0.5).setDepth(3001);
-        this.autoBtn.on('pointerup', () => {
-            this.autoAttack = !this.autoAttack;
-            localStorage.setItem('emberwood_autoattack', this.autoAttack ? '1' : '0');
-            this.sfx.ensure(); this.sfx.build();
-            this.refreshAutoBtn();
-            this.floatText(autoX, autoY - 36, this.autoAttack ? 'Auto-hugg PÅ' : 'Auto-hugg AV', '#ffd166');
+        // lock affordance below the swing button — only visible while holding or locked
+        this.swingLocked = localStorage.getItem('emberwood_autoattack') === '1';
+        this.lockPos = { x: swingX, y: swingY + 84, r: 30 };
+        this.lockBtn = this.add.circle(this.lockPos.x, this.lockPos.y, 30, 0x2a3a2a, 0.6)
+            .setStrokeStyle(3, 0xffd166).setScrollFactor(0).setDepth(3000);
+        this.lockIcon = this.add.text(this.lockPos.x, this.lockPos.y, '🔒', { fontSize: '20px' })
+            .setOrigin(0.5).setDepth(3001);
+        this.swingPointerId = null;
+        this.refreshLock(false);
+
+        this.swingBtn.on('pointerdown', (p) => {
+            this.swingBtn.setScale(0.92); this.swingHeld = true; this.swingPointerId = p.id;
+            this.refreshLock(false); this.swing();
         });
-        this.refreshAutoBtn();
+        // movement + release are handled globally so a drag off the button to the
+        // lock still counts (pointerout would otherwise cancel it)
+        this.input.on('pointermove', (p) => {
+            if (p.id !== this.swingPointerId) return;
+            this.refreshLock(this.overLock(p));
+        });
+        const endSwing = (p) => {
+            if (p.id !== this.swingPointerId) return;
+            this.swingBtn.setScale(1);
+            if (this.overLock(p)) {           // released on the lock → toggle auto-swing
+                this.swingLocked = !this.swingLocked;
+                localStorage.setItem('emberwood_autoattack', this.swingLocked ? '1' : '0');
+                this.sfx.ensure(); this.sfx.build();
+                this.floatText(this.lockPos.x, this.lockPos.y - 40, this.swingLocked ? 'Auto-hugg låst' : 'Auto-hugg av', '#ffd166');
+            }
+            this.swingHeld = false; this.swingPointerId = null;
+            this.refreshLock(false);
+        };
+        this.input.on('pointerup', endSwing);
+        this.input.on('pointerupoutside', endSwing);
 
         // Feed button
         this.feedBtnPos = { x: feedX, y: feedY, r: 34 };
@@ -670,16 +727,25 @@ export default class GameScene extends Phaser.Scene {
     onButton(px, py) {
         const near = (b, r) => Phaser.Math.Distance.Between(px, py, b.x, b.y) < r;
         return near(this.swingBtn, 64) || near(this.feedBtn, 44) || near(this.pauseBtn, 26) ||
-               near(this.autoBtn, 32) ||
+               (this.lockBtn.visible && near(this.lockBtn, 34)) ||
                (this.shopBtn.visible && near(this.shopBtn, 40)) ||
                Phaser.Math.Distance.Between(px, py, FIRE.x, FIRE.y) < 40;
     }
 
-    refreshAutoBtn() {
-        const on = this.autoAttack;
-        this.autoBtn.setFillStyle(on ? 0xc1440e : 0x2a3a2a, on ? 0.85 : 0.45);
-        this.autoBtn.setStrokeStyle(3, on ? 0xffd166 : 0x6b7d52);
-        this.autoBtnLabel.setColor(on ? '#fff3c4' : '#9fb08a').setAlpha(on ? 1 : 0.7);
+    overLock(p) {
+        return Phaser.Math.Distance.Between(p.x, p.y, this.lockPos.x, this.lockPos.y) < this.lockPos.r + 6;
+    }
+
+    // show the lock only while holding the swing or while auto-swing is locked
+    refreshLock(armed) {
+        const show = this.swingHeld || this.swingLocked;
+        this.lockBtn.setVisible(show);
+        this.lockIcon.setVisible(show);
+        if (!show) return;
+        const locked = this.swingLocked;
+        this.lockBtn.setFillStyle(locked ? 0xc1440e : (armed ? 0x4a6b3a : 0x2a3a2a), locked ? 0.85 : (armed ? 0.8 : 0.5));
+        this.lockBtn.setStrokeStyle(3, (locked || armed) ? 0xffd166 : 0x6b7d52);
+        this.lockIcon.setText(locked ? '🔒' : '🔓').setAlpha(locked || armed ? 1 : 0.7);
     }
 
     // during the day, a tap on an upgradeable tower opens its menu — don't also
@@ -835,6 +901,7 @@ export default class GameScene extends Phaser.Scene {
         this.wood += this.killWood;
         this.burst(e.x, e.y, 'ember', 8);
         this.floatText(e.x, e.y - 10, `+${this.killWood} 🪵`, '#ffd166');
+        if (e.aura) { const au = e.aura; this.tweens.add({ targets: au, alpha: 0, scale: 0, duration: 150, onComplete: () => au.destroy() }); }
         this.tweens.add({ targets: e, scale: 0, alpha: 0, duration: 150, onComplete: () => e.destroy() });
         this.enemies = this.enemies.filter(x => x !== e);
         this.updateHUD();
@@ -1490,6 +1557,7 @@ export default class GameScene extends Phaser.Scene {
         // sweep remaining enemies at dawn
         this.enemies.forEach(e => {
             this.burst(e.x, e.y, 'ember', 6);
+            if (e.aura) e.aura.destroy();
             this.tweens.add({ targets: e, alpha: 0, scale: 0, duration: 250, onComplete: () => e.destroy() });
         });
         this.enemies = [];
@@ -1519,6 +1587,10 @@ export default class GameScene extends Phaser.Scene {
         if (n >= 10) unlocked.push('revenant');
         if (n >= 15) unlocked.push('wraith');
         if (n >= 20) unlocked.push('titan');
+        if (n >= 25) unlocked.push('golem');
+        if (n >= 30) unlocked.push('stalker');
+        if (n >= 35) unlocked.push('warlock');
+        if (n >= 40) unlocked.push('behemoth');
         let type = 'shade';
         // chance to be a special type grows as the nights wear on
         const specialChance = Math.min(0.72, 0.4 + (n - 5) * 0.025);
@@ -1543,7 +1615,11 @@ export default class GameScene extends Phaser.Scene {
             flyer:    { tex: 'flyer',    hp: 0.55, speed: 1.5,  dmg: 0.9, scale: 0.95, flies: true, knock: 0.85 },
             revenant: { tex: 'revenant', hp: 3.6,  speed: 0.85, dmg: 2.1, scale: 1.3,  knock: 0.5 },
             wraith:   { tex: 'wraith',   hp: 1.2,  speed: 1.75, dmg: 1.5, scale: 1.05, knock: 0.9 },
-            titan:    { tex: 'titan',    hp: 6.5,  speed: 0.5,  dmg: 2.8, scale: 1.7,  knock: 0.22 }
+            titan:    { tex: 'titan',    hp: 6.5,  speed: 0.5,  dmg: 2.8, scale: 1.7,  knock: 0.22 },
+            golem:    { tex: 'golem',    hp: 4.5,  speed: 0.45, dmg: 2.4, scale: 1.5,  knock: 0.15 },
+            stalker:  { tex: 'stalker',  hp: 1.4,  speed: 1.9,  dmg: 1.8, scale: 1.0,  knock: 0.8 },
+            warlock:  { tex: 'warlock',  hp: 2.2,  speed: 0.9,  dmg: 2.4, scale: 1.2,  knock: 0.55 },
+            behemoth: { tex: 'behemoth', hp: 9,    speed: 0.45, dmg: 3.2, scale: 2.0,  knock: 0.12 }
         }[type];
 
         const e = this.add.image(x, y, spec.tex).setDepth(y);
@@ -1559,9 +1635,22 @@ export default class GameScene extends Phaser.Scene {
         e.dead = false;
         e.slowUntil = 0;
         e.slowFactor = 1;
+
+        // elite escalation — past night 25 a growing share spawn buffed with a
+        // glowing aura, so the threat keeps climbing even after every type is out
+        const eliteChance = n >= 25 ? Math.min(0.6, (n - 23) * 0.03) : 0;
+        if (Math.random() < eliteChance) {
+            e.elite = true;
+            e.hp = e.maxHp = Math.round(e.maxHp * 1.7);
+            e.dmg = Math.round(e.dmg * 1.35);
+            e.baseScale *= 1.18;
+            e.aura = this.add.image(x, y, 'glow').setBlendMode(Phaser.BlendModes.ADD)
+                .setTint(0xff5a3c).setDepth(y - 1).setAlpha(0.55).setScale(e.baseScale * 0.95);
+        }
+
         if (e.flies) e.setAlpha(0.92);
         e.setScale(0);
-        this.tweens.add({ targets: e, scale: spec.scale, duration: 250 });
+        this.tweens.add({ targets: e, scale: e.baseScale, duration: 250 });
         this.enemies.push(e);
     }
 
@@ -1585,7 +1674,7 @@ export default class GameScene extends Phaser.Scene {
 
         this.handleMovement(dt);
         // hold swing button (or space) to keep swinging automatically
-        if (this.autoAttack || this.swingHeld || this.keys.SPACE.isDown) this.swing();
+        if (this.swingLocked || this.swingHeld || this.keys.SPACE.isDown) this.swing();
         this.updateEnemies(dt, time);
         this.updateStructures(time);
 
@@ -1702,6 +1791,12 @@ export default class GameScene extends Phaser.Scene {
     updateEnemies(dt, time) {
         this.enemies.forEach(e => {
             if (e.dead) return;
+
+            // elite aura trails the enemy, gently pulsing
+            if (e.aura) {
+                const pulse = 0.95 + Math.sin(time / 160 + e.flap) * 0.12;
+                e.aura.setPosition(e.x, e.y).setDepth(e.y - 1).setScale(e.baseScale * pulse);
+            }
 
             // ice-cannon slow → clearly icy light-blue while frozen
             let speed = e.speed;
