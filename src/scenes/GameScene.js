@@ -1314,10 +1314,16 @@ export default class GameScene extends Phaser.Scene {
         return s;
     }
 
-    // show a tower/fence's level: badge + a hotter gold tint & slight size as it climbs
+    // show a tower/fence's level: badge (colour-coded per level) + a hotter gold
+    // tint & slight size as it climbs
     refreshStructLevel(s) {
         const lvl = s.lvl || 1;
-        if (s.lvlBadge) s.lvlBadge.setText(`Lv${lvl}`).setVisible(lvl >= 2);
+        if (s.lvlBadge) {
+            // badge colour shifts per level so it's readable at a glance
+            const badgeBg = ['#bcd0e6', '#bcd0e6', '#7ed957', '#ffd166', '#ff9e2c', '#ff3b3b'];
+            s.lvlBadge.setText(`Lv${lvl}`).setVisible(lvl >= 2)
+                .setBackgroundColor(badgeBg[Math.min(lvl, 5)]);
+        }
         // tint only non-fences (fences flash red on hit and would lose a tint)
         if (s.type !== 'gjerde') {
             const tints = [0xffffff, 0xffe9b0, 0xffd166, 0xffb43a, 0xff8c1a];
