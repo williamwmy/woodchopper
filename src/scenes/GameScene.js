@@ -337,6 +337,15 @@ export default class GameScene extends Phaser.Scene {
         g.fillStyle(0x2a2a30, 1); g.fillEllipse(15, 7, 12, 6);     // muzzle
         g.generateTexture('mortar', 32, 38); g.clear();
 
+        // tesla tower – fires lightning that chains between nearby enemies
+        g.fillStyle(0x33384a, 1); g.fillRect(4, 22, 24, 16);       // base
+        g.fillStyle(0x5566aa, 1); g.fillRect(12, 12, 8, 14);       // coil column
+        g.fillStyle(0x8899dd, 1); g.fillRect(11, 16, 10, 2); g.fillRect(11, 20, 10, 2);  // coil rings
+        g.fillStyle(0xbfd0ff, 1); g.fillCircle(16, 9, 6);          // electric orb
+        g.fillStyle(0xeaf2ff, 1); g.fillCircle(16, 9, 3);          // glowing core
+        g.fillStyle(0x9fb6ff, 1); g.fillTriangle(13, 3, 16, 9, 19, 3);  // arc spark
+        g.generateTexture('teslatower', 32, 40); g.clear();
+
         // spike trap – damages nearby enemies
         g.fillStyle(0x3a2a18, 1); g.fillRect(2, 18, 30, 8);        // pad
         g.fillStyle(0xb8c0c8, 1);
@@ -1097,6 +1106,7 @@ export default class GameScene extends Phaser.Scene {
             { key: 'taarn', icon: '🗼', name: 'Vakttårn', desc: 'Skyter automatisk på fiender', base: 28, max: 16 },
             { key: 'iskanon', icon: '🧊', name: 'Iskanon', desc: 'Fryser fiender så de går saktere', base: 40, max: 12 },
             { key: 'bombekaster', icon: '💣', name: 'Bombekaster', desc: 'Splintskade på klynger av fiender', base: 52, max: 12 },
+            { key: 'lyntaarn', icon: '⚡', name: 'Lyntårn', desc: 'Lyn som hopper mellom flere fiender (3 i nivå 1)', base: 46, max: 10 },
             { key: 'piggfelle', icon: '🪤', name: 'Piggfelle', desc: 'Skader alle fiender rundt seg', base: 18, max: 14 },
             { key: 'hus', icon: '🏠', name: 'Hytte', desc: 'Heler deg sakte (+3 liv/s)', base: 38, max: 4 },
             { key: 'sagbruk', icon: '🪚', name: 'Sagbruk', desc: '+1 ved per tre & raskere gjenvekst', base: 30, max: 4 }
@@ -1286,7 +1296,8 @@ export default class GameScene extends Phaser.Scene {
     structTex(type) {
         return {
             gjerde: 'fence', taarn: 'tower', hus: 'house', sagbruk: 'sawmill',
-            iskanon: 'icecannon', bombekaster: 'mortar', piggfelle: 'spiketrap'
+            iskanon: 'icecannon', bombekaster: 'mortar', piggfelle: 'spiketrap',
+            lyntaarn: 'teslatower'
         }[type];
     }
 
@@ -1341,7 +1352,8 @@ export default class GameScene extends Phaser.Scene {
             dmg: Math.round(base.dmg * (1 + 0.6 * l)),
             range: Math.round(base.range * (1 + 0.08 * l)),
             cd: Math.round(base.cd * Math.pow(0.92, l)),
-            splash: base.splash ? Math.round(base.splash * (1 + 0.1 * l)) : base.splash
+            splash: base.splash ? Math.round(base.splash * (1 + 0.1 * l)) : base.splash,
+            chain: base.chain ? base.chain + l : base.chain   // +1 lightning jump per level
         };
     }
 
@@ -1367,7 +1379,7 @@ export default class GameScene extends Phaser.Scene {
         const maxed = lvl >= MAX_LVL;
         const cost = this.upgradeCost(s);
 
-        const name = { gjerde: 'Gjerde', taarn: 'Vakttårn', iskanon: 'Iskanon', bombekaster: 'Bombekaster', piggfelle: 'Piggfelle' }[s.type];
+        const name = { gjerde: 'Gjerde', taarn: 'Vakttårn', iskanon: 'Iskanon', bombekaster: 'Bombekaster', lyntaarn: 'Lyntårn', piggfelle: 'Piggfelle' }[s.type];
         c.add(this.add.text(W / 2, H / 2 - 120, `${name} · nivå ${lvl}`, {
             fontSize: '24px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
         }).setOrigin(0.5));
@@ -1380,9 +1392,12 @@ export default class GameScene extends Phaser.Scene {
         } else {
             const cur = this.structStats(s);
             const next = maxed ? cur : this.structStats({ type: s.type, lvl: lvl + 1 });
-            statLine = maxed
+            const chainLine = cur.chain
+                ? (maxed ? `\nLyn-hopp ${cur.chain}` : `\nLyn-hopp ${cur.chain} → ${next.chain}`)
+                : '';
+            statLine = (maxed
                 ? `Skade ${cur.dmg} · rekkevidde ${cur.range}`
-                : `Skade ${cur.dmg} → ${next.dmg}\nRekkevidde ${cur.range} → ${next.range}\nFyringsrate ${cur.cd} → ${next.cd} ms`;
+                : `Skade ${cur.dmg} → ${next.dmg}\nRekkevidde ${cur.range} → ${next.range}\nFyringsrate ${cur.cd} → ${next.cd} ms`) + chainLine;
         }
         c.add(this.add.text(W / 2, H / 2 - 46, statLine, {
             fontSize: '15px', fontFamily: 'Arial', color: '#cfe3d4', align: 'center', lineSpacing: 6
@@ -1435,6 +1450,7 @@ export default class GameScene extends Phaser.Scene {
         taarn:       { cd: 850,  range: 130, dmg: 12, tex: 'bolt' },
         iskanon:     { cd: 1100, range: 125, dmg: 5,  tex: 'icebolt', slow: 0.45, slowMs: 2500 },
         bombekaster: { cd: 1600, range: 165, dmg: 14, tex: 'shell', splash: 88, arc: true },
+        lyntaarn:    { cd: 1100, range: 205, dmg: 8,  chain: 3, chainR: 95 },
         piggfelle:   { cd: 700,  range: 40,  dmg: 8,  trap: true }
     };
 
@@ -1463,8 +1479,51 @@ export default class GameScene extends Phaser.Scene {
                 const d = Phaser.Math.Distance.Between(s.x, s.y, e.x, e.y);
                 if (d < best) { best = d; target = e; }
             });
-            if (target) { s.cd = time + spec.cd; this.fireProjectile(s, target, spec); }
+            if (!target) return;
+            s.cd = time + spec.cd;
+            if (spec.chain) this.zapChain(s, target, spec);   // lightning that hops
+            else this.fireProjectile(s, target, spec);
         });
+    }
+
+    // chain lightning: strike the target, then hop to the nearest unhit enemy,
+    // up to spec.chain links — longer reach than the mortar, less damage
+    zapChain(s, target, spec) {
+        this.towerFireFx(s, target);
+        this.sfx.zap();
+        const hit = [];
+        let from = { x: s.x, y: s.y - 12 };
+        let cur = target;
+        for (let i = 0; i < spec.chain && cur; i++) {
+            hit.push(cur);
+            this.drawLightning(from.x, from.y, cur.x, cur.y);
+            this.burst(cur.x, cur.y, 'icebolt', 3);
+            this.hurtEnemy(cur, spec.dmg);     // may kill + remove from this.enemies
+            from = { x: cur.x, y: cur.y };
+            // next nearest enemy not yet hit, within the chain radius
+            let next = null, nb = spec.chainR;
+            this.enemies.forEach(e => {
+                if (e.dead || hit.includes(e)) return;
+                const d = Phaser.Math.Distance.Between(from.x, from.y, e.x, e.y);
+                if (d < nb) { nb = d; next = e; }
+            });
+            cur = next;
+        }
+    }
+
+    // a jagged electric bolt between two points that flashes and fades
+    drawLightning(x1, y1, x2, y2) {
+        const g = this.add.graphics().setDepth(1310);
+        g.lineStyle(2.5, 0xaef0ff, 0.95);
+        g.beginPath(); g.moveTo(x1, y1);
+        const segs = 6;
+        for (let i = 1; i < segs; i++) {
+            const t = i / segs;
+            g.lineTo(Phaser.Math.Linear(x1, x2, t) + Phaser.Math.Between(-7, 7),
+                     Phaser.Math.Linear(y1, y2, t) + Phaser.Math.Between(-7, 7));
+        }
+        g.lineTo(x2, y2); g.strokePath();
+        this.tweens.add({ targets: g, alpha: 0, duration: 170, onComplete: () => g.destroy() });
     }
 
     // turret juice: lean toward the target, recoil, and flash the muzzle

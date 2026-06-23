@@ -132,4 +132,5 @@ export class SoundFX {
     gameOver()   { this.voice(330, 1.1, { type: 'sine', vol: 0.4, slideTo: 90, attack: 0.04, reverb: true, rich: true }); }
     lowFuel()    { this.voice(440, 0.13, { type: 'triangle', vol: 0.2, slideTo: 320 }); }
     crit()       { this.voice(880, 0.12, { type: 'triangle', vol: 0.24, slideTo: 1400 }); this.noise(0.05, 0.18, 3200); }
+    zap()        { this.noise(0.14, 0.16, 4200); this.voice(1200, 0.1, { type: 'triangle', vol: 0.12, slideTo: 360 }); }
 }

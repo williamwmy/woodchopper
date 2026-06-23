@@ -82,9 +82,11 @@ upgrades, shop/building, phases (day/night), and `update()`.
 - **Shop/building** (`shopItems`, `startPlacement`/`tryPlace`, `spawnStructure`):
   fences (sturdy 300-hp palisade that blocks enemies; **flat price** — items can
   set `flat: true` so `shopCost` skips the 1.4^count scaling), watchtowers
-  (auto-shoot), ice cannons (slow), mortars (AoE splash), spike traps (passive
-  AoE), huts (HP regen), sawmills (each adds +1 wood per felled tree and speeds
-  tree regrowth ~25%). **Manual placement**: tapping a shop row enters a
+  (auto-shoot), ice cannons (slow), mortars (AoE splash), tesla/lightning towers
+  (`lyntaarn` — chain lightning that hops between enemies via `zapChain`; longer
+  reach than the mortar, less damage, `chain` jumps grow per level), spike traps
+  (passive AoE), huts (HP regen), sawmills (each adds +1 wood per felled tree and
+  speeds tree regrowth ~25%). **Manual placement**: tapping a shop row enters a
   placement mode (`placeC` overlay) — a ghost + range ring snaps to a dot grid
   (`snapToGrid`, cell `GameScene.CELL`, centred on FIRE). **Two-step**: tapping
   the play area only moves the selected cell (so a finger doesn't occlude the
