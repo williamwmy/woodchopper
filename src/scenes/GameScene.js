@@ -57,6 +57,7 @@ export default class GameScene extends Phaser.Scene {
         this.critChance = 0;      // 0..1 chance for a critical hit
         this.critMult = 2;        // damage multiplier on a crit
         this.knockback = 7;       // px enemies are shoved on an axe hit
+        this.armor = 0;           // flat damage reduction per enemy hit
         this.fuelDrainMult = 1;   // bålmester reduces this
         this.dawnHeal = 0;        // hp restored each dawn
         this.upgLevels = {};      // how many times each upgrade was taken
@@ -77,6 +78,7 @@ export default class GameScene extends Phaser.Scene {
         this.fuelDrainMult *= Math.max(0.5, 1 - pk.drain * 0.02);
         this.critChance += pk.crit * 0.015;     // +1.5% crit per perk level
         this.knockback += pk.knock * 2;         // +2 knockback per perk level
+        this.armor += pk.armor * 1;             // +1 armor per perk level
 
         this.facing = 1;               // 1 right, -1 left
         this.trees = [];
@@ -846,7 +848,8 @@ export default class GameScene extends Phaser.Scene {
             { key: 'regen', icon: '💚', name: 'Helbredende ild', desc: 'Heal nå + 15 liv hvert daggry', apply: () => { this.dawnHeal += 15; this.hp = Math.min(this.maxHp, this.hp + 30); } },
             { key: 'crit', icon: '🎯', name: 'Kritisk treff', desc: '+10% kritisk sjanse', apply: () => { this.critChance = Math.min(1, this.critChance + 0.10); } },
             { key: 'critdmg', icon: '💥', name: 'Dødelig hugg', desc: '+50% kritisk skade', apply: () => { this.critMult += 0.5; } },
-            { key: 'knock', icon: '🥊', name: 'Kraftig slag', desc: '+12 tilbakeslag på fiender', apply: () => { this.knockback += 12; } }
+            { key: 'knock', icon: '🥊', name: 'Kraftig slag', desc: '+12 tilbakeslag på fiender', apply: () => { this.knockback += 12; } },
+            { key: 'armor', icon: '🪖', name: 'Rustning', desc: '+4 rustning (mindre skade per treff)', apply: () => { this.armor += 4; } }
         ];
     }
 
@@ -1695,7 +1698,8 @@ export default class GameScene extends Phaser.Scene {
     }
 
     damagePlayer(amount) {
-        this.hp = Math.max(0, this.hp - amount);
+        const dmg = Math.max(1, amount - this.armor);   // armor softens each hit (never to 0)
+        this.hp = Math.max(0, this.hp - dmg);
         this.sfx.hurt();
         this.cameras.main.shake(120, 0.01);
         this.player.setTintFill(0xff5050);
