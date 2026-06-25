@@ -89,7 +89,7 @@ export default class GameScene extends Phaser.Scene {
         this.trees = [];
         this.enemies = [];
         this.enemyShots = [];          // projectiles fired by ranged enemies
-        this.boss = null; this.won = false;
+        this.boss = null; this.won = false; this.tornadoes = []; this.bossTimers = [];
         this.structures = [];
         this.buildCounts = { gjerde: 0, taarn: 0, iskanon: 0, bombekaster: 0, lyntaarn: 0, piggfelle: 0, hus: 0, sagbruk: 0 };
         this.houseRegen = 0;
@@ -303,6 +303,48 @@ export default class GameScene extends Phaser.Scene {
         g.fillStyle(0x7a1020, 1); g.fillRect(22, 46, 20, 5);                            // mouth
         g.fillStyle(0xffd23b, 1); g.fillRect(24, 46, 3, 4); g.fillRect(30, 46, 3, 4); g.fillRect(37, 46, 3, 4); // teeth
         g.generateTexture('behemoth', 64, 64); g.clear();
+
+        // final boss — a colossal gold & silver titan with arms and legs (88×128)
+        const GOLD = 0xd9b13a, GOLDL = 0xf2dc82, GOLDD = 0x9a7a1e;
+        const SILV = 0xc8d0d8, SILVL = 0xeef2f6, SILVD = 0x8a929c;
+        // legs (silver) + golden boots
+        g.fillStyle(SILV, 1); g.fillRect(28, 86, 14, 34); g.fillRect(46, 86, 14, 34);
+        g.fillStyle(SILVD, 1); g.fillRect(28, 86, 5, 34); g.fillRect(46, 86, 5, 34);
+        g.fillStyle(GOLD, 1); g.fillRect(26, 114, 18, 10); g.fillRect(44, 114, 18, 10);
+        // arms (gold) hanging at the sides + silver fists
+        g.fillStyle(GOLD, 1); g.fillRect(8, 44, 13, 44); g.fillRect(67, 44, 13, 44);
+        g.fillStyle(GOLDD, 1); g.fillRect(8, 44, 4, 44); g.fillRect(67, 44, 4, 44);
+        g.fillStyle(SILV, 1); g.fillCircle(14, 90, 9); g.fillCircle(74, 90, 9);
+        // torso (silver plate with gold trim) + glowing core
+        g.fillStyle(SILV, 1); g.fillRoundedRect(20, 40, 48, 52, 8);
+        g.fillStyle(SILVL, 1); g.fillRoundedRect(20, 40, 48, 8, 8);
+        g.fillStyle(GOLD, 1); g.fillRect(20, 56, 48, 4); g.fillRect(42, 40, 4, 52);
+        g.fillStyle(0xff3b5b, 1); g.fillCircle(44, 66, 8); g.fillStyle(0xffd0dd, 1); g.fillCircle(44, 64, 3);
+        // grand pauldrons (gold orbs)
+        g.fillStyle(GOLD, 1); g.fillCircle(20, 44, 13); g.fillCircle(68, 44, 13);
+        g.fillStyle(GOLDL, 1); g.fillCircle(17, 41, 5); g.fillCircle(65, 41, 5);
+        // head (gold) with crown of horns + burning eyes
+        g.fillStyle(GOLDD, 1); g.fillTriangle(28, 16, 22, -6, 36, 16); g.fillTriangle(60, 16, 66, -6, 52, 16);
+        g.fillStyle(GOLD, 1); g.fillRoundedRect(32, 12, 24, 26, 6);
+        g.fillStyle(GOLDL, 1); g.fillRect(32, 12, 24, 4);
+        g.fillStyle(0xffe9a0, 1); g.fillTriangle(38, 4, 44, 12, 50, 4);   // crown spike
+        g.fillStyle(0xff5a1e, 1); g.fillCircle(39, 24, 4); g.fillCircle(49, 24, 4);   // eyes
+        g.fillStyle(0xffe0b0, 1); g.fillCircle(38, 23, 1.5); g.fillCircle(48, 23, 1.5);
+        g.fillStyle(0x6e1830, 1); g.fillRect(38, 32, 12, 3);             // grim mouth
+        g.generateTexture('finalboss', 88, 128); g.clear();
+
+        // tornado hazard — a grey funnel
+        g.fillStyle(0xb8c0c8, 0.5); g.fillTriangle(4, 4, 28, 4, 16, 52);
+        g.fillStyle(0xd6dde2, 0.7); g.fillTriangle(7, 6, 25, 6, 16, 46);
+        g.fillStyle(0xeef2f6, 0.9); g.fillTriangle(11, 8, 21, 8, 16, 38);
+        g.fillStyle(0x9aa3ad, 0.6); g.fillRect(4, 6, 24, 2); g.fillRect(7, 16, 18, 2); g.fillRect(10, 28, 12, 2);
+        g.generateTexture('tornado', 32, 56); g.clear();
+
+        // boss missile — a fiery shell
+        g.fillStyle(0xffb347, 0.4); g.fillCircle(8, 8, 8);
+        g.fillStyle(0xff7a1e, 1); g.fillCircle(8, 8, 5);
+        g.fillStyle(0xffe89a, 1); g.fillCircle(8, 8, 2.5);
+        g.generateTexture('missile', 16, 16); g.clear();
 
         // wood chip particle
         g.fillStyle(0xb07a3c, 1); g.fillRect(0, 0, 6, 6);
@@ -1281,6 +1323,9 @@ export default class GameScene extends Phaser.Scene {
         this.won = true; this.gameIsOver = true;
         this.gameOverReason = t('win.boss');
         if (this.spawnTimer) this.spawnTimer.remove();
+        if (this.bossTimers) { this.bossTimers.forEach(tm => tm.remove()); this.bossTimers = []; }
+        if (this.tornadoes) { this.tornadoes.forEach(tr => tr.destroy()); this.tornadoes = []; }
+        this.enemyShots.forEach(p => p.destroy()); this.enemyShots = [];
 
         // record run + character
         const hi = Number(localStorage.getItem('emberwood_highscore') || 0);
@@ -2222,19 +2267,21 @@ export default class GameScene extends Phaser.Scene {
     }
 
     spawnBoss() {
-        const BOSS_HP = 13000;
-        const scale = (W * 0.55) / 64;                  // ~half the screen wide
-        // rises up from the bottom of the screen
-        const e = this.add.image(W / 2, PLAY_BOTTOM + 40, 'behemoth').setDepth(PLAY_BOTTOM + 40);
+        const BOSS_HP = 130000;                         // ~10× — a real endurance fight
+        const scale = (W * 0.6) / 88;                   // ~60% of the screen wide (texture is 88px)
+        // rises up from the bottom of the screen, walking up toward the fire
+        const e = this.add.image(W / 2, PLAY_BOTTOM + 50, 'finalboss').setDepth(PLAY_BOTTOM + 50);
         e.isBoss = true; e.etype = 'finalboss';
         e.hp = e.maxHp = BOSS_HP;
-        e.speed = 16;                                   // very slow
-        e.dmg = 30;                                     // contact damage
+        e.speed = 17;                                   // very slow
+        e.dmg = 34;                                     // contact damage
         e.baseScale = scale;
-        e.bossReach = (W * 0.55) / 2 * 0.72;            // body radius for smash/contact
+        e.bossReach = (W * 0.6) / 2 * 0.62;             // body radius for smash/contact
         e.knockResist = 0;                              // immune to knockback
         e.dead = false; e.smashCd = 0; e.touchCd = 0; e.gnawCd = 0;
         e.target = null; e.attackTime = 0; e.flap = 0;
+        this.tornadoes = [];
+        this._bossAtkUntil = this.time.now;             // set below to when the entrance ends
         // dramatic entrance: rises from below + thunderous steps before it acts
         const STEPS = 6, STEP_MS = 720;
         e.bornUntil = this.time.now + 850;
@@ -2266,6 +2313,76 @@ export default class GameScene extends Phaser.Scene {
         e.hpLabel = this.add.text(W / 2, barY, t('boss.label'), {
             fontSize: '12px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff', stroke: '#000', strokeThickness: 3
         }).setOrigin(0.5).setDepth(2602).setScrollFactor(0);
+
+        // repeating ranged attacks — only after the entrance and while it lives
+        const armed = () => !e.dead && this.boss === e && this.time.now > e.entranceUntil && !this.gameIsOver;
+        this.bossTimers = [
+            this.time.addEvent({ delay: 2600, loop: true, callback: () => { if (armed()) this.bossMissiles(e); } }),
+            this.time.addEvent({ delay: 5200, loop: true, callback: () => { if (armed()) this.bossLightning(e); } }),
+            this.time.addEvent({ delay: 8000, loop: true, callback: () => { if (armed()) this.bossTornado(e); } })
+        ];
+    }
+
+    // boss attack: a volley of fiery missiles lobbed at the player
+    bossMissiles(e) {
+        this.sfx.towerShoot();
+        for (let i = 0; i < 3; i++) {
+            this.time.delayedCall(i * 170, () => {
+                if (e.dead || this.gameIsOver) return;
+                const a = Phaser.Math.Angle.Between(e.x, e.y, this.player.x, this.player.y) + Phaser.Math.FloatBetween(-0.18, 0.18);
+                const p = this.add.image(e.x, e.y, 'missile').setDepth(1260);
+                p.vx = Math.cos(a) * 170; p.vy = Math.sin(a) * 170;
+                p.dmg = 28; p.life = 3;
+                this.enemyShots.push(p);
+                this.burst(e.x, e.y, 'ember', 3);
+            });
+        }
+    }
+
+    // boss attack: lightning that destroys structures + strikes near the player
+    bossLightning(e) {
+        this.sfx.zap();
+        const alive = this.structures.filter(s => !s.dead);
+        Phaser.Utils.Array.Shuffle(alive).slice(0, 2).forEach(s => {
+            this.drawLightning(s.x, PLAY_TOP - 24, s.x, s.y);
+            this.cameras.main.shake(140, 0.006);
+            this.burst(s.x, s.y, 'ember', 8);
+            this.destroyStructure(s);
+        });
+        const px = this.player.x, py = this.player.y;     // telegraphed bolt — dodge it
+        this.drawLightning(px, PLAY_TOP - 24, px, py);
+        this.time.delayedCall(140, () => {
+            if (this.gameIsOver) return;
+            if (Phaser.Math.Distance.Between(px, py, this.player.x, this.player.y) < 38) this.damagePlayer(38);
+            this.burst(px, py, 'ember', 7);
+        });
+    }
+
+    // boss attack: a tornado that sweeps across the field, hurting the player
+    bossTornado(e) {
+        const fromLeft = Math.random() < 0.5;
+        const tor = this.add.image(fromLeft ? -20 : W + 20, Phaser.Math.Between(PLAY_TOP + 40, PLAY_BOTTOM - 40), 'tornado')
+            .setScale(1.7).setAlpha(0.92);
+        tor.vx = (fromLeft ? 1 : -1) * Phaser.Math.Between(55, 80);
+        tor.life = 6.5; tor.dmgCd = 0;
+        this.tornadoes.push(tor);
+        this.sfx.nightStart();
+    }
+
+    updateTornadoes(dt, time) {
+        if (!this.tornadoes) return;
+        for (let i = this.tornadoes.length - 1; i >= 0; i--) {
+            const tr = this.tornadoes[i];
+            tr.x += tr.vx * dt;
+            tr.y += Math.sin(time / 280 + i) * 0.5;
+            tr.rotation += dt * 14;
+            tr.setDepth(tr.y);
+            tr.life -= dt;
+            if (Phaser.Math.Distance.Between(tr.x, tr.y, this.player.x, this.player.y) < 32 && time > tr.dmgCd) {
+                tr.dmgCd = time + 500; this.damagePlayer(16);
+            }
+            if (tr.life <= 0 || tr.x < -44 || tr.x > W + 44) { tr.destroy(); this.tornadoes.splice(i, 1); }
+        }
     }
 
     updateBoss(dt, time) {
@@ -2289,12 +2406,13 @@ export default class GameScene extends Phaser.Scene {
                 const tgt = e.target;
                 this.time.delayedCall(80, () => { if (tgt && tgt.active && !tgt.dead) { tgt.clearTint(); if (tgt.type === 'gjerde') tgt.setAlpha(0.45 + 0.55 * Math.max(0, tgt.hp) / tgt.maxHp); else if (GameScene.SPEC[tgt.type]) this.refreshStructLevel(tgt); } });
             }
-            if (e.attackTime >= (e.target.lvl || 1)) {
+            if (e.attackTime >= Math.max(0.45, (e.target.lvl || 1) * 0.35)) {   // much faster now
                 this.destroyStructure(e.target);
                 e.target = null; e.attackTime = 0;
             }
         } else {
             e.target = null;
+            e.setRotation(0);
             // grab the nearest structure inside its body, else advance on the fire
             let near = null, nd = e.bossReach;
             this.structures.forEach(s => {
@@ -2307,6 +2425,7 @@ export default class GameScene extends Phaser.Scene {
                 const a = Phaser.Math.Angle.Between(e.x, e.y, FIRE.x, FIRE.y);
                 e.x += Math.cos(a) * e.speed * dt;
                 e.y += Math.sin(a) * e.speed * dt;
+                e.setRotation(Math.sin(e.flap * 6) * 0.04);   // a lumbering walk
             } else if (time > e.gnawCd) {
                 e.gnawCd = time + 600;
                 this.fuel = Math.max(0, this.fuel - 8);
@@ -2468,6 +2587,7 @@ export default class GameScene extends Phaser.Scene {
         this.updateEnemies(dt, time);
         this.updateEnemyShots(dt);
         if (this.boss) this.updateBoss(dt, time);
+        this.updateTornadoes(dt, time);
         this.updateStructures(time);
 
         // healing fire: regenerate HP while standing in the fire's warm glow,
@@ -2798,6 +2918,7 @@ export default class GameScene extends Phaser.Scene {
         this.gameIsOver = true;
         this.gameOverReason = reason;
         if (this.spawnTimer) this.spawnTimer.remove();
+        if (this.bossTimers) { this.bossTimers.forEach(tm => tm.remove()); this.bossTimers = []; }
 
         const hi = Number(localStorage.getItem('emberwood_highscore') || 0);
         if (this.score > hi) localStorage.setItem('emberwood_highscore', String(this.score));

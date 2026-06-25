@@ -118,12 +118,16 @@ upgrades, shop/building, phases (day/night), and `update()`.
   `this.enemyShots`, moved/collided in `updateEnemyShots`); bolt damage is based
   on the night and capped so it chips rather than one-shots, so you must keep
   moving. **Final boss** (night 50, `startBossNight`/`spawnBoss`/`updateBoss`): a
-  single colossal enemy (~half the screen) appears alone — slow, immune to
-  freeze/snare/knockback, with a top HP bar. It advances on the fire, but stops
-  to smash the nearest structure in its body, destroying it after X seconds where
-  X = that structure's level; it deals contact damage and gnaws the fire. Killing
-  it (huge HP) ends the run in victory: `killBoss` → `victorySequence` (congrats +
-  fanfare) → milestone claims → `showGameOver(reason, true)`. **Elite escalation**
+  single colossal gold-&-silver titan (`'finalboss'` texture, humanoid with
+  arms/legs, ~60% screen wide) rises from the bottom and walks up toward the fire
+  — slow, immune to freeze/snare/knockback, ~130k HP, top HP bar. It smashes the
+  nearest structure in its body fast (~`level·0.35`s), deals contact damage and
+  gnaws the fire, plus three repeating ranged attacks on timers (`bossTimers`):
+  `bossMissiles` (fiery volley into `enemyShots`), `bossLightning` (destroys 2
+  random structures + a telegraphed bolt at the player), `bossTornado` (a `tornado`
+  hazard that sweeps across, `updateTornadoes`). Killing it ends the run in
+  victory: `killBoss` → `victorySequence` (congrats + fanfare) → milestone claims
+  → `showGameOver(reason, true)`. Clean up timers/tornadoes on death/loss. **Elite escalation**
   (`eliteChance`, from night 25):
   a growing share spawn buffed (×1.7 hp, ×1.35 dmg, bigger) with a glowing red
   `e.aura` glow that trails them — so it keeps climbing past night 40 even after
