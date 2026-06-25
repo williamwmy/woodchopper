@@ -124,7 +124,7 @@ function shade(c, f) {
 
 // Draw a character avatar to a texture key (used for the player sprite and
 // for previews/portraits in the GUI). Regenerates if the key already exists.
-export function generateAvatarTexture(scene, key, look) {
+export function generateAvatarTexture(scene, key, look, armorTier = 0) {
     if (scene.textures.exists(key)) scene.textures.remove(key);
     const g = scene.make.graphics({ x: 0, y: 0, add: false });
 
@@ -132,6 +132,12 @@ export function generateAvatarTexture(scene, key, look) {
     const hair = HAIRS[look.hair] ?? HAIRS[1];
     const shirt = SHIRTS[look.shirt] ?? SHIRTS[0];
     const female = look.gender === 1;
+
+    // a mighty cape billows behind once well armoured (drawn first, peeks at edges)
+    if (armorTier >= 3) {
+        g.fillStyle(0x7a1d2a, 1); g.fillRect(6, 16, 24, 24);
+        g.fillStyle(0x9a2535, 1); g.fillRect(6, 16, 24, 3);
+    }
 
     // boots + pants
     g.fillStyle(0x2a1d12, 1); g.fillRect(11, 37, 6, 5); g.fillRect(19, 37, 6, 5);
@@ -157,6 +163,35 @@ export function generateAvatarTexture(scene, key, look) {
     g.fillStyle(hair, 1); g.fillRect(11, 3, 14, 5);
     if (female) { g.fillStyle(hair, 1); g.fillRect(10, 6, 2, 11); g.fillRect(24, 6, 2, 11); }
     else { g.fillStyle(hair, 1); g.fillRect(12, 14, 11, 3); }   // beard
+
+    // --- armour: the character looks mightier as armor grows (over the clothes) ---
+    if (armorTier >= 1) {
+        // breastplate over the shirt + a shoulder guard on the arm
+        g.fillStyle(0x9aa3ad, 1); g.fillRect(10, 18, 16, 12);
+        g.fillStyle(0xc2cad3, 1); g.fillRect(10, 18, 16, 3);          // top shine
+        g.fillStyle(0x6e767f, 1); g.fillRect(17, 18, 2, 12);         // centre seam
+        g.fillStyle(0x6e767f, 1); g.fillRect(10, 28, 16, 2);         // bottom rim
+        g.fillStyle(0xaab2bc, 1); g.fillRect(23, 18, 7, 5);          // arm guard
+        g.fillStyle(0x6e767f, 1); g.fillRect(23, 22, 7, 1);
+    }
+    if (armorTier >= 2) {
+        // pauldrons + a helmet band across the brow
+        g.fillStyle(0xc2cad3, 1); g.fillRect(8, 16, 6, 5); g.fillRect(24, 16, 6, 5);
+        g.fillStyle(0x8a929c, 1); g.fillRect(8, 20, 6, 1); g.fillRect(24, 20, 6, 1);
+        g.fillStyle(0x9aa3ad, 1); g.fillRect(11, 5, 14, 3);
+        g.fillStyle(0xc2cad3, 1); g.fillRect(11, 5, 14, 1);
+    }
+    if (armorTier >= 3) {
+        // gilded trim on collar, belt and helm
+        g.fillStyle(0xd8b54a, 1);
+        g.fillRect(10, 18, 16, 1); g.fillRect(10, 29, 16, 2); g.fillRect(11, 7, 14, 1);
+    }
+    if (armorTier >= 4) {
+        // crowned, horned helm with a glowing band — a true champion
+        g.fillStyle(0xefe3b0, 1);
+        g.fillTriangle(10, 5, 8, -2, 13, 5); g.fillTriangle(26, 5, 28, -2, 23, 5);
+        g.fillStyle(0xffe9a0, 1); g.fillRect(12, 3, 12, 2);
+    }
 
     // axe
     g.fillStyle(0x6b4423, 1); g.fillRect(28, 5, 3, 24);

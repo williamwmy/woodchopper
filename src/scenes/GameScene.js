@@ -539,16 +539,23 @@ export default class GameScene extends Phaser.Scene {
         this.playerAura = this.add.image(FIRE.x, FIRE.y + 70, 'glow')
             .setBlendMode(Phaser.BlendModes.ADD).setDepth(499).setAlpha(0).setScale(0.4);
         this.playerShadow = this.addShadow(FIRE.x, FIRE.y + 88, 30, 0.6, 498);
-        // armor plating – a steel ring that thickens as armor is gained
-        this.armorRing = this.add.circle(FIRE.x, FIRE.y + 70, 18, 0x000000, 0)
-            .setStrokeStyle(2, 0xbcd0e6, 0).setDepth(501);
         this.player = this.add.image(FIRE.x, FIRE.y + 70, 'player').setDepth(500);
         this.walkPhase = 0;
+        this._armorTier = -1;      // force the first avatar regen in refreshPowerVisuals
         this.refreshPowerVisuals();
     }
 
     tierColor(level) {
         return [0xffffff, 0xffe08a, 0xffae42, 0xff7a2b][Math.min(level, 3)];
+    }
+
+    // more armor → mightier armoured outfit on the sprite
+    armorTier(armor) {
+        if (armor <= 0) return 0;
+        if (armor < 8) return 1;
+        if (armor < 16) return 2;
+        if (armor < 28) return 3;
+        return 4;
     }
 
     refreshPowerVisuals(changed) {
@@ -568,18 +575,19 @@ export default class GameScene extends Phaser.Scene {
         // the lumberjack himself bulks up a little
         this.player.setScale(1 + Math.min(0.22, axe * 0.05));
 
-        // armor ring – brighter & thicker steel as armor grows
-        if (this.armor > 0) {
-            const a = Math.min(0.95, 0.35 + this.armor * 0.05);
-            this.armorRing.setStrokeStyle(Math.min(6, 2.5 + this.armor * 0.3), 0xbcd0e6, a);
-        } else {
-            this.armorRing.setStrokeStyle(2, 0xbcd0e6, 0);
+        // armor → re-skin the avatar with mightier gear when the tier changes
+        const at = this.armorTier(this.armor);
+        if (at !== this._armorTier) {
+            this._armorTier = at;
+            generateAvatarTexture(this, 'player', this.char, at);
+            this.player.setTexture('player');
         }
 
-        // feedback pulse when armor was just taken
+        // feedback when armor was just taken: steely flash + a proud scale pop
         if (changed === 'armor') {
             const r = this.add.circle(this.player.x, this.player.y, 26, 0xbcd0e6, 0.35).setDepth(502);
             this.tweens.add({ targets: r, alpha: 0, scale: 1.4, duration: 480, onComplete: () => r.destroy() });
+            this.tweens.add({ targets: this.player, scaleX: this.player.scaleX * 1.18, scaleY: this.player.scaleY * 1.18, duration: 130, yoyo: true });
         }
 
         // slash visuals
@@ -2001,7 +2009,6 @@ export default class GameScene extends Phaser.Scene {
         // power aura + reach ring + shadow follow the player
         this.playerAura.setPosition(this.player.x, this.player.y).setDepth(this.player.depth - 1);
         this.reachRing.setPosition(this.player.x, this.player.y);
-        this.armorRing.setPosition(this.player.x, this.player.y + 4).setDepth(this.player.depth + 1);
         this.playerShadow.setPosition(this.player.x, this.player.y + 18).setDepth(this.player.depth - 2);
     }
 
