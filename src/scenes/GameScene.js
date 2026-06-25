@@ -1361,13 +1361,16 @@ export default class GameScene extends Phaser.Scene {
         if (this.tornadoes) { this.tornadoes.forEach(tr => tr.destroy()); this.tornadoes = []; }
         this.enemyShots.forEach(p => p.destroy()); this.enemyShots = [];
 
-        // record run + character
+        // record run + character (test mode earns no progression)
         const hi = Number(localStorage.getItem('emberwood_highscore') || 0);
-        if (this.score > hi) localStorage.setItem('emberwood_highscore', String(this.score));
         this.finalBest = Math.max(hi, this.score);
-        const p = this.char; p.runs += 1; p.bestNight = Math.max(p.bestNight, this.wave);
-        this.toClaim = milestonesUnlocked(this.wave);
-        saveRoster(this.roster);
+        this.toClaim = 0;
+        if (!this.testCfg) {
+            if (this.score > hi) localStorage.setItem('emberwood_highscore', String(this.score));
+            const p = this.char; p.runs += 1; p.bestNight = Math.max(p.bestNight, this.wave);
+            this.toClaim = milestonesUnlocked(this.wave);
+            saveRoster(this.roster);
+        }
 
         // triumphant death
         this.sfx.fanfare();
@@ -2958,16 +2961,17 @@ export default class GameScene extends Phaser.Scene {
         if (this.bossTimers) { this.bossTimers.forEach(tm => tm.remove()); this.bossTimers = []; }
 
         const hi = Number(localStorage.getItem('emberwood_highscore') || 0);
-        if (this.score > hi) localStorage.setItem('emberwood_highscore', String(this.score));
         this.finalBest = Math.max(hi, this.score);
-
-        // update character; award a permanent perk for EACH milestone night
-        // reached THIS run (5, 10, 15, …) — so every run that gets far rewards you
-        const p = this.char;
-        p.runs += 1;
-        p.bestNight = Math.max(p.bestNight, this.wave);
-        this.toClaim = milestonesUnlocked(this.wave);   // floor(night / 5)
-        saveRoster(this.roster);
+        this.toClaim = 0;
+        if (!this.testCfg) {     // test mode earns no progression at all
+            if (this.score > hi) localStorage.setItem('emberwood_highscore', String(this.score));
+            // award a permanent perk for EACH milestone night reached this run
+            const p = this.char;
+            p.runs += 1;
+            p.bestNight = Math.max(p.bestNight, this.wave);
+            this.toClaim = milestonesUnlocked(this.wave);   // floor(night / 5)
+            saveRoster(this.roster);
+        }
 
         // play a clear death animation + sound BEFORE any reward screen
         this.deathSequence();
