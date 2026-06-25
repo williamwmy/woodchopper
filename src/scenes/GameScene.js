@@ -582,51 +582,61 @@ export default class GameScene extends Phaser.Scene {
         const headCol = [0xe8eef4, 0xffe08a, 0xffae42, 0xff7a2b, 0xff5a2b][Math.min(axeLv, 4)];
         const handleCol = ccLv >= 3 ? 0xd8b54a : ccLv >= 2 ? 0x9aa3ad : ccLv >= 1 ? 0x4a2f18 : 0x7a5230;
         const grow = Math.min(7, axeLv + Math.max(0, knockLv - 1));
-        const ext = dual ? 0 : Math.min(12, reachLv * 3);
-        const L = (dual ? 24 : 30) + ext;          // shaft length
-        const w = 5;                               // shaft width
-        const hw = (dual ? 8 : 10) + grow;         // blade reach (out to the side)
-        const hh = (dual ? 6 : 8) + grow * 0.7;    // blade half-height
+        const ext = dual ? 0 : Math.min(10, reachLv * 3);
+        const L = 36 + ext;                        // total handle length (filled the button)
+        const w = 6;                               // shaft width
+        const hw = 16 + grow;                      // blade reach out to the side
+        const hh = 9 + grow * 0.6;                 // blade half-height (eye to shoulder)
 
+        // a small gem set into the blade (crit-damage), kept tiny so it doesn't
+        // turn the head into a banner
         const gem = (gx, gy, col) => {
-            g.fillStyle(col, 1); g.fillPoints([{ x: gx, y: gy - 3 }, { x: gx + 3, y: gy }, { x: gx, y: gy + 3 }, { x: gx - 3, y: gy }], true);
-            g.fillStyle(0xffffff, 0.7); g.fillRect(gx - 1.5, gy - 1.5, 1.5, 1.5);
+            g.fillStyle(0x1a1208, 1); g.fillCircle(gx, gy, 2.4);
+            g.fillStyle(col, 1); g.fillCircle(gx, gy, 1.6);
+            g.fillStyle(0xffffff, 0.8); g.fillCircle(gx - 0.5, gy - 0.5, 0.7);
         };
-        // draws one axe centred on (0,0), shaft pointing down, head at the top,
-        // blade flaring LEFT — a proper axe silhouette (not a flag)
-        const drawAxe = (cx, cy, ang, flip) => {
-            g.save(); g.translateCanvas(cx, cy); g.rotateCanvas(ang); if (flip) g.scaleCanvas(-1, 1);
-            const topY = -L / 2, botY = L / 2, eyeY = topY + 6;
-            // dark outline behind the shaft so it reads on any button colour
-            g.fillStyle(0x1a1208, 0.9); g.fillRect(-w / 2 - 1, eyeY - 1, w + 2, botY - eyeY + 2);
-            // shaft — material upgrades with crit-chance
-            g.fillStyle(handleCol, 1); g.fillRect(-w / 2, eyeY, w, botY - eyeY);
-            g.fillStyle(shade(handleCol, 0.7), 1); g.fillRect(-w / 2, eyeY, w * 0.4, botY - eyeY);
-            if (ccLv >= 1) { g.fillStyle(shade(handleCol, 0.55), 1); for (let yy = eyeY + 8; yy < botY - 2; yy += 7) g.fillRect(-w / 2, yy, w, 1.4); }
+        // draws one axe centred on (0,0), shaft pointing down, big head at the top.
+        // The head is a chunky bearded blade that wraps the top of the handle.
+        const drawAxe = () => {
+            const topY = -L / 2, botY = L / 2;
+            const headBot = topY + 2 * hh;             // blade occupies the top band
+            const eyeY = topY + hh;                    // where the handle meets the head
+            const shTop = headBot - 3;                 // shaft starts just inside the head
+            // handle — dark outline + wood, material upgrades with crit-chance
+            g.fillStyle(0x1a1208, 1); g.fillRect(-w / 2 - 1, shTop, w + 2, botY - shTop + 1);
+            g.fillStyle(handleCol, 1); g.fillRect(-w / 2, shTop, w, botY - shTop);
+            g.fillStyle(shade(handleCol, 0.68), 1); g.fillRect(-w / 2, shTop, w * 0.38, botY - shTop);
+            if (ccLv >= 1) { g.fillStyle(shade(handleCol, 0.5), 1); for (let yy = shTop + 7; yy < botY - 2; yy += 7) g.fillRect(-w / 2, yy, w, 1.6); }
             if (ccLv >= 3) { g.fillStyle(0xfff0b0, 1); g.fillRect(-w / 2 - 1, botY - 3, w + 2, 3); }   // gold pommel
-            // poll (back weight, right of the shaft)
-            g.fillStyle(shade(headCol, 0.8), 1); g.fillRect(w / 2 - 1, eyeY - hh * 0.55, 4, hh * 1.1);
-            // blade — dark outline then fill, cutting edge to the left with a pointed bit
-            const blade = (inset) => [
-                { x: w * 0.5 - inset, y: eyeY - hh * 0.78 + inset },
-                { x: w * 0.5 - inset, y: eyeY + hh * 0.78 - inset },
-                { x: -hw * 0.8 + inset, y: eyeY + hh - inset },
-                { x: -hw + inset, y: eyeY },
-                { x: -hw * 0.8 + inset, y: eyeY - hh + inset }
+            // poll (squared back of the head, right of the shaft)
+            g.fillStyle(0x1a1208, 1); g.fillRect(w / 2 - 1, eyeY - hh * 0.6 - 1, 6, hh * 1.2 + 2);
+            g.fillStyle(shade(headCol, 0.82), 1); g.fillRect(w / 2, eyeY - hh * 0.6, 5, hh * 1.2);
+            // bearded blade flaring LEFT: heel up, broad curved cutting edge, toe down
+            const blade = (o) => [
+                { x: w * 0.5, y: eyeY - hh * 0.55 + o },        // top, near shaft (heel root)
+                { x: -hw * 0.5, y: topY + o },                  // top shoulder (heel)
+                { x: -hw + o, y: topY + hh * 0.7 },             // cutting edge — top
+                { x: -hw + o, y: headBot - hh * 0.5 },          // cutting edge — bottom
+                { x: -hw * 0.42, y: headBot - o },              // toe / beard (hangs down)
+                { x: w * 0.5, y: eyeY + hh * 0.55 - o }         // bottom, near shaft
             ];
-            g.fillStyle(0x1a1208, 0.9); g.fillPoints(blade(0), true);
-            g.fillStyle(headCol, 1); g.fillPoints(blade(1.4), true);
-            g.fillStyle(shade(headCol, 0.78), 1); g.fillTriangle(-hw * 0.8 + 1.4, eyeY + hh - 1.4, -hw + 1.4, eyeY, -hw * 0.45, eyeY + hh * 0.4);  // lower bevel
-            g.fillStyle(0xffffff, 0.5); g.fillRect(-hw * 0.45, eyeY - hh * 0.4, hw * 0.5, 1.6);   // glint
-            // crit-damage → titanium edge + gems on the blade
-            if (cdLv >= 1) { g.fillStyle(0xeaf6ff, 1); g.fillTriangle(-hw + 1.4, eyeY, -hw * 0.78, eyeY + hh - 1, -hw * 0.62, eyeY + hh * 0.4); }
-            if (cdLv >= 2) gem(-hw * 0.3, eyeY, 0x8ff0ff);
-            if (cdLv >= 3) gem(-hw * 0.05, eyeY - hh * 0.35, 0xff8fe0);
-            if (cdLv >= 4) gem(-hw * 0.05, eyeY + hh * 0.35, 0xa8ff9f);
-            g.restore();
+            g.fillStyle(0x1a1208, 1); g.fillPoints(blade(0), true);          // outline
+            g.fillStyle(headCol, 1); g.fillPoints(blade(1.6), true);        // body
+            g.fillStyle(shade(headCol, 0.74), 1);                            // lower-half shade
+            g.fillTriangle(-hw + 2, eyeY, -hw * 0.42, headBot - 2, -hw * 0.5, eyeY + hh * 0.4);
+            g.fillStyle(0xffffff, 0.45); g.fillRect(-hw * 0.5, eyeY - hh * 0.45, hw * 0.55, 1.8);   // top glint
+            // crit-damage → bright titanium cutting edge + tiny gems on the cheek
+            if (cdLv >= 1) { g.fillStyle(0xeaf6ff, 1); g.fillTriangle(-hw + 1.6, topY + hh * 0.7, -hw + 1.6, headBot - hh * 0.5, -hw + 4.5, eyeY); }
+            if (cdLv >= 2) gem(-hw * 0.2, eyeY, 0x8ff0ff);
+            if (cdLv >= 3) gem(-hw * 0.05, eyeY - hh * 0.42, 0xff8fe0);
+            if (cdLv >= 4) gem(-hw * 0.05, eyeY + hh * 0.42, 0xa8ff9f);
         };
-        if (dual) { drawAxe(20, 30, -0.42, false); drawAxe(36, 30, 0.42, true); }   // crossed pair
-        else drawAxe(28, 29, -0.12, false);
+        const place = (cx, cy, ang, sc, flip) => {
+            g.save(); g.translateCanvas(cx, cy); g.rotateCanvas(ang); g.scaleCanvas(flip ? -sc : sc, sc);
+            drawAxe(); g.restore();
+        };
+        if (dual) { place(21, 30, -0.52, 0.92, false); place(35, 30, 0.52, 0.92, true); }   // big crossed pair
+        else place(29, 28, -0.14, 1, false);
         g.generateTexture('btn_axe', 56, 56); g.clear(); g.destroy();
     }
 
