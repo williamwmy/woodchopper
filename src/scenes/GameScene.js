@@ -1265,51 +1265,70 @@ export default class GameScene extends Phaser.Scene {
                 fontSize: '13px', fontFamily: 'Arial', color: '#cfe3d4'
             }).setOrigin(0.5));
 
-            // --- current effective stats (two columns) ---
+            // small drawn icon (reuses the upgrade-card art) instead of emoji
+            const icon = (x, y, key, size = 16) => {
+                const im = this.add.image(x, y, 'upg_' + key).setDisplaySize(size, size).setOrigin(0.5);
+                C.add(im); return im;
+            };
+            const PERK_ICON = { axe: 'axe', hp: 'vit', speed: 'boots', fuel: 'fire', wood: 'lumber', drain: 'ember', crit: 'crit', knock: 'knock', armor: 'armor' };
+
+            // --- current effective stats (two columns, with drawn icons) ---
             const stats = [
-                ['🪓', 'Skade', `${this.axeDmg}`],
-                ['🎯', 'Krit', `${Math.round(this.critChance * 100)}% ×${this.critMult.toFixed(1)}`],
-                ['❤️', 'Maks liv', `${this.maxHp}`],
-                ['🦺', 'Rustning', `${this.armor}`],
-                ['⛑️', 'Hjelm', `${this.headArmor}`],
-                ['👢', 'Fart', `${Math.round(this.moveSpeed)}`],
-                ['⚡', 'Sving', `${this.swingDelay}ms${this.swingDelay <= 120 ? ' (maks)' : ''}`],
-                ['🌀', 'Rekkevidde', `${this.swingRange}`],
-                ['🥊', 'Tilbakeslag', `${this.knockback}`],
-                ['🔥', 'Bål', `${this.fuelMax}`],
-                ['🛡️', 'Bålvern', `${Math.round((1 - this.fuelDrainMult) * 100)}%`],
-                ['🪵', 'Ved/tre', `${3 + this.treeBonus + this.buildCounts.sagbruk}`],
-                ['🩸', 'Ved/drep', `${this.killWood}`]
+                ['axe', 'Skade', `${this.axeDmg}`],
+                ['crit', 'Krit', `${Math.round(this.critChance * 100)}% ×${this.critMult.toFixed(1)}`],
+                ['vit', 'Maks liv', `${this.maxHp}`],
+                ['armor', 'Rustning', `${this.armor}`],
+                ['helm', 'Hjelm', `${this.headArmor}`],
+                ['boots', 'Fart', `${Math.round(this.moveSpeed)}`],
+                ['swift', 'Sving', `${this.swingDelay}ms${this.swingDelay <= 120 ? ' (maks)' : ''}`],
+                ['reach', 'Rekkevidde', `${this.swingRange}`],
+                ['knock', 'Tilbakeslag', `${this.knockback}`],
+                ['fire', 'Bål', `${this.fuelMax}`],
+                ['ember', 'Bålvern', `${Math.round((1 - this.fuelDrainMult) * 100)}%`],
+                ['lumber', 'Ved/tre', `${3 + this.treeBonus + this.buildCounts.sagbruk}`],
+                ['hunter', 'Ved/drep', `${this.killWood}`]
             ];
             const colX = [22, W / 2 + 8];
-            const sY = 88, rowH = 21;
+            const sY = 86, rowH = 21;
             stats.forEach((s, i) => {
-                add(colX[i % 2], sY + Math.floor(i / 2) * rowH, `${s[0]} ${s[1]}: ${s[2]}`,
-                    { fontSize: '13px', fontFamily: 'Arial', color: '#ffffff' });
+                const x = colX[i % 2], yy = sY + Math.floor(i / 2) * rowH;
+                icon(x + 8, yy + 8, s[0], 16);
+                add(x + 19, yy, `${s[1]}: ${s[2]}`, { fontSize: '12.5px', fontFamily: 'Arial', color: '#ffffff' });
             });
             let y = sY + Math.ceil(stats.length / 2) * rowH + 12;
 
+            // flow a row of icons (with a small count/level) that wraps
+            const iconFlow = (entries, color) => {
+                let cx = 33, cy = y + 12;
+                entries.forEach(([key, n]) => {
+                    if (cx > W - 26) { cx = 33; cy += 28; }
+                    icon(cx, cy, key, 22);
+                    if (n > 1) add(cx + 7, cy - 13, `${n}`, { fontSize: '11px', fontFamily: 'Arial', fontStyle: 'bold', color });
+                    cx += 30;
+                });
+                y = cy + 19;
+            };
+
             // --- in-run upgrades chosen ---
-            const byKey = {}; this.upgradePool().forEach(u => byKey[u.key] = u);
             const chosen = Object.entries(this.upgLevels).filter(([, v]) => v > 0);
-            add(22, y, '🎁  Valgte forsterkninger', { fontSize: '14px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166' });
+            add(22, y, 'Valgte forsterkninger', { fontSize: '14px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166' });
             y += 22;
-            const upLine = chosen.length
-                ? chosen.map(([k, v]) => `${byKey[k] ? byKey[k].icon : '?'}${v > 1 ? '×' + v : ''}`).join('   ')
-                : 'Ingen valgt ennå';
-            y = add(22, y, upLine, { fontSize: '18px', fontFamily: 'Arial', color: '#ffffff', wordWrap: { width: W - 44 } }).getBottomLeft().y + 10;
+            if (chosen.length) iconFlow(chosen, '#ffd166');
+            else y = add(22, y, 'Ingen valgt ennå', { fontSize: '13px', fontFamily: 'Arial', color: '#9fb08a' }).getBottomLeft().y + 8;
 
             // --- permanent perks ---
             const perks = PERKS.filter(pk => (p.perks[pk.key] || 0) > 0);
-            add(22, y, '⭐  Permanente perks', { fontSize: '14px', fontFamily: 'Arial', fontStyle: 'bold', color: '#9fd0ff' });
+            add(22, y, 'Permanente perks', { fontSize: '14px', fontFamily: 'Arial', fontStyle: 'bold', color: '#9fd0ff' });
             y += 22;
-            const perkLine = perks.length
-                ? perks.map(pk => `${pk.icon} ${pk.name} ${p.perks[pk.key]}`).join('   ')
-                : 'Ingen ennå';
-            y = add(22, y, perkLine, { fontSize: '13px', fontFamily: 'Arial', color: '#cfe3d4', wordWrap: { width: W - 44 } }).getBottomLeft().y + 14;
+            if (perks.length) iconFlow(perks.map(pk => [PERK_ICON[pk.key] || 'axe', p.perks[pk.key]]), '#9fd0ff');
+            else y = add(22, y, 'Ingen ennå', { fontSize: '13px', fontFamily: 'Arial', color: '#9fb08a' }).getBottomLeft().y + 8;
 
             // --- damage graph: player vs towers, per night ---
-            add(22, y, '📊  Skade per natt — 🟦 du  🟧 tårn', { fontSize: '13px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166' });
+            add(22, y, 'Skade per natt', { fontSize: '14px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166' });
+            C.add(this.add.rectangle(W - 118, y + 8, 9, 9, 0x5b9cff));
+            add(W - 110, y, 'du', { fontSize: '11px', fontFamily: 'Arial', color: '#cfe3d4' });
+            C.add(this.add.rectangle(W - 76, y + 8, 9, 9, 0xff9e2c));
+            add(W - 68, y, 'tårn', { fontSize: '11px', fontFamily: 'Arial', color: '#cfe3d4' });
             y += 20;
             this.drawDamageGraph(C, 22, y, W - 44, (H - 168) - y);
 
