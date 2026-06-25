@@ -110,7 +110,7 @@ export default class GameScene extends Phaser.Scene {
         this.trees = [];
         this.enemies = [];
         this.enemyShots = [];          // projectiles fired by ranged enemies
-        this.boss = null; this.won = false; this.tornadoes = []; this.bossTimers = [];
+        this.boss = null; this.won = false; this.tornadoes = []; this.bossTimers = []; this.debris = [];
         this.structures = [];
         this.buildCounts = { gjerde: 0, taarn: 0, iskanon: 0, bombekaster: 0, lyntaarn: 0, piggfelle: 0, hus: 0, sagbruk: 0 };
         this.houseRegen = 0;
@@ -358,22 +358,10 @@ export default class GameScene extends Phaser.Scene {
         g.fillStyle(0xffd23b, 1); g.fillRect(24, 46, 3, 4); g.fillRect(30, 46, 3, 4); g.fillRect(37, 46, 3, 4); // teeth
         g.generateTexture('behemoth', 64, 64); g.clear();
 
-        // final boss — the Colossus: a colossal flayed-muscle humanoid, no armour (88×128)
+        // final boss — the Colossus: a colossal flayed-muscle humanoid (88×128).
+        // Arms and legs are SEPARATE sprites (see spawnBoss) so they swing as it walks;
+        // this texture is just the head + torso + pelvis.
         const MUSD = 0x4a241c, MUS = 0x7a3a2c, MUSM = 0x9c503a, MUSL = 0xc07a5a, SIN = 0xc28a64;
-        g.fillStyle(0x000000, 0.22); g.fillEllipse(44, 123, 72, 12);                    // ground shadow
-        // legs — heavy muscular thighs
-        g.fillStyle(MUS, 1); g.fillRect(26, 98, 17, 30); g.fillRect(45, 98, 17, 30);
-        g.fillStyle(MUSM, 1); g.fillCircle(34, 106, 9); g.fillCircle(54, 106, 9);       // thigh bulge
-        g.fillStyle(MUSD, 1); g.fillRect(42, 98, 4, 30);                                // inner gap
-        g.fillStyle(MUSD, 1); g.fillRect(26, 98, 4, 30); g.fillRect(58, 98, 4, 30);     // outer shade
-        // arms — long, hanging, with huge biceps and forearms
-        g.fillStyle(MUS, 1); g.fillRect(4, 54, 18, 52); g.fillRect(66, 54, 18, 52);
-        g.fillStyle(MUSM, 1); g.fillCircle(13, 64, 10); g.fillCircle(75, 64, 10);       // biceps
-        g.fillStyle(MUSM, 1); g.fillCircle(13, 94, 9); g.fillCircle(75, 94, 9);         // forearms
-        g.fillStyle(MUSD, 1); g.fillRect(4, 54, 4, 52); g.fillRect(80, 54, 4, 52);      // outer shade
-        g.fillStyle(MUSL, 1); g.fillCircle(13, 62, 4); g.fillCircle(75, 62, 4);         // bicep highlight
-        g.lineStyle(1, MUSD, 0.45);                                                     // arm fibre striations
-        g.lineBetween(10, 72, 16, 88); g.lineBetween(72, 72, 78, 88);
         // torso — broad muscular trunk
         g.fillStyle(MUS, 1); g.fillRoundedRect(16, 48, 56, 58, 12);
         g.fillStyle(MUSD, 1); g.fillRect(43, 60, 2, 46);                                // central seam
@@ -389,7 +377,7 @@ export default class GameScene extends Phaser.Scene {
         // the Y-shaped sternum sinew from the reference
         g.lineStyle(2.5, SIN, 0.9);
         g.lineBetween(28, 52, 44, 76); g.lineBetween(60, 52, 44, 76); g.lineBetween(44, 76, 44, 100);
-        // deltoids — cap the shoulder joints
+        // deltoids — shoulder caps (the swinging arms tuck behind these)
         g.fillStyle(MUSM, 1); g.fillCircle(20, 52, 12); g.fillCircle(68, 52, 12);
         g.fillStyle(MUSL, 1); g.fillCircle(18, 48, 4); g.fillCircle(66, 48, 4);
         // thick neck + traps
@@ -410,6 +398,38 @@ export default class GameScene extends Phaser.Scene {
         g.fillRect(36, 30, 2, 7); g.fillRect(39, 30, 2, 7); g.fillRect(42, 30, 2, 7);
         g.fillRect(45, 30, 2, 7); g.fillRect(48, 30, 2, 7); g.fillRect(51, 30, 2, 7);
         g.generateTexture('finalboss', 88, 128); g.clear();
+
+        // Colossus arm — origin set near the shoulder so it swings as a pendulum
+        g.fillStyle(MUS, 1); g.fillRoundedRect(2, 4, 16, 50, 7);
+        g.fillStyle(MUSM, 1); g.fillCircle(10, 16, 8); g.fillCircle(10, 40, 7);         // bicep + forearm
+        g.fillStyle(MUSD, 1); g.fillRect(2, 4, 4, 50);                                  // inner shade
+        g.fillStyle(MUSL, 1); g.fillCircle(10, 14, 3);                                  // highlight
+        g.fillStyle(MUSM, 1); g.fillCircle(10, 52, 6);                                  // fist
+        g.lineStyle(1, MUSD, 0.4); g.lineBetween(7, 22, 13, 38);
+        g.generateTexture('boss_arm', 20, 60); g.clear();
+
+        // Colossus leg — origin near the hip so it swings as it strides
+        g.fillStyle(MUS, 1); g.fillRoundedRect(2, 2, 16, 40, 6);
+        g.fillStyle(MUSM, 1); g.fillCircle(10, 12, 8); g.fillCircle(10, 32, 6);         // thigh + calf
+        g.fillStyle(MUSD, 1); g.fillRect(2, 2, 4, 40);                                  // inner shade
+        g.fillStyle(MUSL, 1); g.fillCircle(10, 11, 3);
+        g.fillStyle(MUSD, 1); g.fillRoundedRect(3, 40, 14, 5, 2);                       // foot
+        g.generateTexture('boss_leg', 20, 46); g.clear();
+
+        // soft round shadow that sits under the Colossus' feet
+        g.fillStyle(0x000000, 0.26); g.fillEllipse(40, 13, 76, 22);
+        g.generateTexture('boss_shadow', 80, 26); g.clear();
+
+        // rubble — splintered planks, stone & embers left where a structure was smashed
+        g.fillStyle(0x000000, 0.18); g.fillEllipse(22, 23, 42, 11);                     // scorch
+        g.fillStyle(0x6b4a2a, 1); g.fillRect(5, 13, 18, 5);
+        g.fillStyle(0x52371f, 1); g.fillRect(19, 17, 17, 4);
+        g.fillStyle(0x7a5632, 1); g.fillRect(11, 19, 12, 4);
+        g.fillStyle(0x8a6a40, 1); g.fillTriangle(23, 13, 32, 9, 30, 16);                // splinter
+        g.fillStyle(0x6a6f74, 1); g.fillCircle(13, 20, 3); g.fillCircle(34, 20, 3.5);   // stones
+        g.fillStyle(0x4e5358, 1); g.fillCircle(35, 21, 2);
+        g.fillStyle(0xff7a1e, 0.85); g.fillCircle(17, 17, 1.6); g.fillCircle(28, 19, 1.2); // embers
+        g.generateTexture('rubble', 44, 30); g.clear();
 
         // boss missile — a fiery shell
         g.fillStyle(0xffb347, 0.4); g.fillCircle(8, 8, 8);
@@ -1461,6 +1481,7 @@ export default class GameScene extends Phaser.Scene {
         if (this.spawnTimer) this.spawnTimer.remove();
         if (this.bossTimers) { this.bossTimers.forEach(tm => tm.remove()); this.bossTimers = []; }
         if (this.tornadoes) { this.tornadoes.forEach(tr => tr.destroy()); this.tornadoes = []; }
+        this.destroyBossLimbs(e, true);   // fade the limbs out with the body
         this.enemyShots.forEach(p => p.destroy()); this.enemyShots = [];
 
         // record run + character (test mode earns no progression)
@@ -1490,10 +1511,12 @@ export default class GameScene extends Phaser.Scene {
 
         const big = this.add.text(W / 2, H / 2 - 30, t('win.title'), {
             fontSize: '44px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffe066', stroke: '#000000', strokeThickness: 6
-        }).setOrigin(0.5).setScale(2).setAlpha(0);
+        }).setOrigin(0.5).setAlpha(0);
+        const fit = Math.min(1, (W - 36) / big.width);   // resting scale that fits the screen
+        big.setScale(fit * 2);
         c.add(big);
-        this.tweens.add({ targets: big, scale: 1, alpha: 1, duration: 500, ease: 'Back.out' });
-        this.tweens.add({ targets: big, scale: { from: 1, to: 1.06 }, duration: 700, yoyo: true, repeat: -1, delay: 500 });
+        this.tweens.add({ targets: big, scale: fit, alpha: 1, duration: 500, ease: 'Back.out' });
+        this.tweens.add({ targets: big, scale: { from: fit, to: fit * 1.06 }, duration: 700, yoyo: true, repeat: -1, delay: 500 });
 
         const sub = this.add.text(W / 2, H / 2 + 26, t('win.sub'), {
             fontSize: '16px', fontFamily: 'Arial', color: '#cfe7d0'
@@ -2487,6 +2510,13 @@ export default class GameScene extends Phaser.Scene {
         e.target = null; e.attackTime = 0; e.flap = 0;
         // three phases: 1 melee-only · 2 (≤50% HP) adds missiles · 3 (revived at 20% HP) adds lightning + faster fire
         e.phase = 1; e.revived = false; e.missileCd = 0; e.lightCd = 0;
+        // separate, swinging limbs + a ground shadow so it visibly walks (positioned each frame in updateBossLimbs)
+        e.shadow = this.add.image(e.x, e.y, 'boss_shadow').setScale(0);
+        e.lleg = this.add.image(e.x, e.y, 'boss_leg').setOrigin(0.5, 0.06).setScale(0);
+        e.rleg = this.add.image(e.x, e.y, 'boss_leg').setOrigin(0.5, 0.06).setScale(0).setFlipX(true);
+        e.larm = this.add.image(e.x, e.y, 'boss_arm').setOrigin(0.5, 0.10).setScale(0);
+        e.rarm = this.add.image(e.x, e.y, 'boss_arm').setOrigin(0.5, 0.10).setScale(0).setFlipX(true);
+        e.walk = 0; e.isMoving = false; e.isSmashing = false;
         this.tornadoes = [];
         this._bossAtkUntil = this.time.now;             // set below to when the entrance ends
         // dramatic entrance: rises from below + thunderous steps before it acts
@@ -2544,6 +2574,7 @@ export default class GameScene extends Phaser.Scene {
         e.hp = Math.round(e.maxHp * 0.2);
         e.missileCd = this.time.now + 600; e.lightCd = this.time.now + 1300;
         e.setTint(0xff9977);                              // enraged red glow
+        for (const k of ['larm', 'rarm', 'lleg', 'rleg']) if (e[k]) e[k].setTint(0xff9977);
         if (e.hpBar) e.hpBar.setFillStyle(0xff7a1e);
         this.banner(t('boss.phase3'), 0xff3b3b);
         this.sfx.bossTheme(); this.sfx.bossStep();
@@ -2576,6 +2607,7 @@ export default class GameScene extends Phaser.Scene {
             this.drawLightning(s.x, PLAY_TOP - 24, s.x, s.y);
             this.cameras.main.shake(140, 0.006);
             this.burst(s.x, s.y, 'ember', 8);
+            this.dropRubble(s.x, s.y);   // leave wreckage behind
             this.destroyStructure(s);
         });
         const px = this.player.x, py = this.player.y;     // telegraphed bolt — dodge it
@@ -2593,9 +2625,11 @@ export default class GameScene extends Phaser.Scene {
         e.flap += dt;
         e.setDepth(e.y);
         e.hpBar.width = (W - 40) * Phaser.Math.Clamp(e.hp / e.maxHp, 0, 1);
-        // during the rising/stomping entrance it doesn't move, smash or hit yet
-        if (time < e.entranceUntil) return;
+        // during the rising/stomping entrance it doesn't move, smash or hit yet —
+        // but the limbs still ride along so the whole figure rises together
+        if (time < e.entranceUntil) { this.updateBossLimbs(e); return; }
         if (time > e.bornUntil) e.setScale(e.baseScale * (1 + Math.sin(e.flap * 2) * 0.02));
+        e.isMoving = false; e.isSmashing = false;
 
         // phase escalation + ranged attacks
         if (e.phase === 1 && e.hp <= e.maxHp * 0.5) this.bossEnterPhase2(e, time);
@@ -2610,6 +2644,7 @@ export default class GameScene extends Phaser.Scene {
 
         if (e.target && !e.target.dead) {
             // stopped, smashing the structure; destroyed after (its level) seconds
+            e.isSmashing = true;
             e.attackTime += dt;
             if (time > e.smashCd) {
                 e.smashCd = time + 450;
@@ -2620,6 +2655,7 @@ export default class GameScene extends Phaser.Scene {
                 this.time.delayedCall(80, () => { if (tgt && tgt.active && !tgt.dead) { tgt.clearTint(); if (tgt.type === 'gjerde') tgt.setAlpha(0.45 + 0.55 * Math.max(0, tgt.hp) / tgt.maxHp); else if (GameScene.SPEC[tgt.type]) this.refreshStructLevel(tgt); } });
             }
             if (e.attackTime >= Math.max(0.45, (e.target.lvl || 1) * 0.35)) {   // much faster now
+                this.dropRubble(e.target.x, e.target.y);   // leave wreckage behind
                 this.destroyStructure(e.target);
                 e.target = null; e.attackTime = 0;
             }
@@ -2638,7 +2674,8 @@ export default class GameScene extends Phaser.Scene {
                 const a = Phaser.Math.Angle.Between(e.x, e.y, FIRE.x, FIRE.y);
                 e.x += Math.cos(a) * e.speed * dt;
                 e.y += Math.sin(a) * e.speed * dt;
-                e.setRotation(Math.sin(e.flap * 6) * 0.04);   // a lumbering walk
+                e.isMoving = true; e.walk += dt * 7;          // drive the leg/arm swing
+                e.setRotation(Math.sin(e.walk) * 0.03);       // a lumbering sway in step with the legs
             } else if (time > e.gnawCd) {
                 e.gnawCd = time + 600;
                 this.fuel = Math.max(0, this.fuel - 8);
@@ -2652,6 +2689,59 @@ export default class GameScene extends Phaser.Scene {
             e.touchCd = time + 700;
             this.damagePlayer(e.dmg);
         }
+
+        this.updateBossLimbs(e);
+    }
+
+    // position + animate the Colossus' separate limbs so it strides instead of floating
+    updateBossLimbs(e) {
+        if (!e.larm) return;
+        const s = e.scaleX;                                   // follow the breathing/entrance scale
+        const map = (tx, ty) => [e.x + (tx - 44) * s, e.y + (ty - 64) * s];
+        const d = e.depth;
+        const [lsx, lsy] = map(22, 52), [rsx, rsy] = map(66, 52);   // shoulders
+        const [lhx, lhy] = map(35, 98), [rhx, rhy] = map(53, 98);   // hips
+        const [fx, fy] = map(44, 120);                              // feet (shadow)
+        e.larm.setPosition(lsx, lsy); e.rarm.setPosition(rsx, rsy);
+        e.lleg.setPosition(lhx, lhy); e.rleg.setPosition(rhx, rhy);
+        e.shadow.setPosition(fx, fy).setScale(s).setDepth(d - 3);
+        for (const L of [e.lleg, e.rleg, e.larm, e.rarm]) { L.setScale(s); L.setDepth(d - 1); }
+        // walk cycle: legs alternate, arms swing opposite; while smashing the arms pound
+        const sw = Math.sin(e.walk);
+        const legT = e.isMoving ? sw * 0.34 : 0;
+        let larmT, rarmT;
+        if (e.isSmashing) { const a = 0.15 + Math.abs(Math.sin(e.attackTime * 13)) * 0.7; larmT = a; rarmT = a; }
+        else { larmT = e.isMoving ? -sw * 0.26 : 0; rarmT = e.isMoving ? sw * 0.26 : 0; }
+        const ease = (c, target) => c + (target - c) * 0.25;
+        e.lleg.rotation = ease(e.lleg.rotation, legT);
+        e.rleg.rotation = ease(e.rleg.rotation, -legT);
+        e.larm.rotation = ease(e.larm.rotation, larmT);
+        e.rarm.rotation = ease(e.rarm.rotation, rarmT);
+    }
+
+    destroyBossLimbs(e, fade) {
+        for (const k of ['larm', 'rarm', 'lleg', 'rleg', 'shadow']) {
+            const L = e[k];
+            if (!L) continue;
+            e[k] = null;
+            if (fade) this.tweens.add({ targets: L, alpha: 0, duration: 450, onComplete: () => L.destroy() });
+            else L.destroy();
+        }
+    }
+
+    // leave splintered wreckage where the Colossus has smashed a structure
+    dropRubble(x, y) {
+        if (!this.debris) this.debris = [];
+        const n = Phaser.Math.Between(1, 2);
+        for (let i = 0; i < n; i++) {
+            const r = this.add.image(x + Phaser.Math.Between(-14, 14), y + Phaser.Math.Between(-6, 10), 'rubble')
+                .setDepth(6).setAlpha(0)
+                .setRotation(Phaser.Math.FloatBetween(-0.5, 0.5))
+                .setScale(Phaser.Math.FloatBetween(0.85, 1.25));
+            this.tweens.add({ targets: r, alpha: 1, duration: 200 });
+            this.debris.push(r);
+        }
+        this.burst(x, y, 'chip', 8);
     }
 
     startDay() {
@@ -3165,10 +3255,13 @@ export default class GameScene extends Phaser.Scene {
         if (this.boss) {
             if (this.boss.hpBar) this.boss.hpBar.destroy();
             if (this.boss.hpBarBg) this.boss.hpBarBg.destroy();
+            if (this.boss.hpLabel) this.boss.hpLabel.destroy();
             if (this.boss.aura) this.boss.aura.destroy();
+            this.destroyBossLimbs(this.boss, false);
             this.boss.destroy(); this.boss = null;
         }
         if (this.tornadoes) { this.tornadoes.forEach(tr => tr.destroy()); this.tornadoes = []; }
+        if (this.debris) { this.debris.forEach(r => r.destroy()); this.debris = []; }
         this.enemies.forEach(e => { if (e.aura) e.aura.destroy(); e.destroy(); });
         this.enemies = [];
         this.enemyShots.forEach(p => p.destroy()); this.enemyShots = [];
@@ -3283,9 +3376,11 @@ export default class GameScene extends Phaser.Scene {
         const p = this.char;
         const c = this.add.container(0, 0).setDepth(5000);
         c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.8).setOrigin(0).setInteractive());
-        c.add(this.add.text(W / 2, 170, won ? t('over.congrats') : t('over.end'), {
+        const title = this.add.text(W / 2, 170, won ? t('over.congrats') : t('over.end'), {
             fontSize: won ? '40px' : '48px', fontFamily: 'Arial', fontStyle: 'bold', color: won ? '#ffe066' : '#ff5050'
-        }).setOrigin(0.5));
+        }).setOrigin(0.5);
+        if (title.width > W - 36) title.setScale((W - 36) / title.width);   // shrink to fit narrow screens
+        c.add(title);
         c.add(this.add.text(W / 2, 218, reason, {
             fontSize: '16px', fontFamily: 'Arial', color: won ? '#cfe7d0' : '#cfe3d4'
         }).setOrigin(0.5));
