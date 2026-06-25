@@ -233,23 +233,33 @@ export function generateAvatarTexture(scene, key, look, gear = {}) {
         g.fillStyle(0xffe9a0, 1); g.fillRect(13, 1, 10, 2);
     }
 
-    // axe — head glows with axe upgrades, shaft lengthens with reach, and the
-    // head grows bigger the more knockback you stack (from knock lvl 2)
+    // axe — head glows with axe upgrades, shaft lengthens with reach, head grows
+    // with knockback; crit-damage adds titanium/gem accents on the head and
+    // crit-chance upgrades the handle's material
     const knockLv = gear.knock || 0;
+    const cdLv = gear.critdmg || 0;       // crit damage → head accents
+    const ccLv = gear.crit || 0;          // crit chance → handle material
     const headCol = [0xcfd6dd, 0xffe08a, 0xffae42, 0xff7a2b, 0xff5a2b][Math.min(axeLv, 4)];
+    const handleCol = ccLv >= 3 ? 0xd8b54a : ccLv >= 2 ? 0x9aa3ad : ccLv >= 1 ? 0x4a2f18 : 0x6b4423;
     const grow = Math.min(9, axeLv + Math.max(0, knockLv - 1));               // wider head
     const headH = 8 + Math.min(7, Math.round(grow * 0.7));                    // taller head
     const ext = Math.min(9, reachLv * 2);                                     // longer shaft per reach lvl
-    g.fillStyle(0x6b4423, 1); g.fillRect(28, 5, 3, 24 + ext);                 // handle (longer)
-    g.fillStyle(headCol, 1); g.fillRect(26 - grow, 3, 9 + grow, headH);       // head
-    g.fillStyle(shade(headCol, 0.78), 1); g.fillRect(26 - grow, 3 + headH - 3, 9 + grow, 3);
+    const w = 9 + grow;
 
-    // a second axe in the off-hand once you've sped up your swing enough
-    if (swiftLv >= 4) {
-        g.fillStyle(skin, 1); g.fillRect(7, 25, 4, 4);                        // off-hand
-        g.fillStyle(0x6b4423, 1); g.fillRect(8, 5, 3, 24 + ext);             // handle
-        g.fillStyle(headCol, 1); g.fillRect(4, 3, 9 + grow, headH);         // head (points out-left)
-        g.fillStyle(shade(headCol, 0.78), 1); g.fillRect(4, 3 + headH - 3, 9 + grow, 3);
+    const drawAxe = (px, hl) => {   // px = handle x, hl = head left x
+        g.fillStyle(handleCol, 1); g.fillRect(px, 5, 3, 24 + ext);            // handle (material by crit-chance)
+        if (ccLv >= 1) { g.fillStyle(shade(handleCol, 0.6), 1); g.fillRect(px, 13, 3, 1); g.fillRect(px, 19, 3, 1); g.fillRect(px, 25, 3, 1); }  // grip bands
+        if (ccLv >= 3) { g.fillStyle(0xfff0b0, 1); g.fillRect(px - 1, 5 + 24 + ext - 2, 5, 2); }   // gold pommel
+        g.fillStyle(headCol, 1); g.fillRect(hl, 3, w, headH);                 // head
+        g.fillStyle(shade(headCol, 0.78), 1); g.fillRect(hl, 3 + headH - 3, w, 3);
+        if (cdLv >= 1) { g.fillStyle(0xeaf6ff, 1); g.fillRect(hl, 3, w, 1); } // titanium sheen edge
+        if (cdLv >= 2) { g.fillStyle(0x8ff0ff, 1); g.fillRect(hl + 2, 5, 2, 2); }   // gem
+        if (cdLv >= 3) { g.fillStyle(0xff8fe0, 1); g.fillRect(hl + Math.max(5, w - 4), 5, 2, 2); }  // 2nd gem
+    };
+    drawAxe(28, 26 - grow);
+    if (swiftLv >= 4) {   // a second axe in the off-hand once swing is fast enough
+        g.fillStyle(skin, 1); g.fillRect(7, 25, 4, 4);
+        drawAxe(8, 4);
     }
 
     g.generateTexture(key, 36, 44);

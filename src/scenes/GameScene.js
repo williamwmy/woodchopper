@@ -488,16 +488,31 @@ export default class GameScene extends Phaser.Scene {
             return (r << 16) | (gg << 8) | b;
         };
         const axeLv = gear.axe || 0, knockLv = gear.knock || 0, reachLv = gear.reach || 0;
+        const cdLv = gear.critdmg || 0, ccLv = gear.crit || 0;
         const headCol = [0xe8eef4, 0xffe08a, 0xffae42, 0xff7a2b, 0xff5a2b][Math.min(axeLv, 4)];
+        const handleCol = ccLv >= 3 ? 0xd8b54a : ccLv >= 2 ? 0x9aa3ad : ccLv >= 1 ? 0x4a2f18 : 0x7a5230;
         const grow = Math.min(11, axeLv + Math.max(0, knockLv - 1));
         const ext = Math.min(16, reachLv * 3.5);
-        const hx = 34;
-        g.fillStyle(0x7a5230, 1); g.fillRect(hx, 16, 5, 22 + ext);                 // shaft (longer w/ reach)
-        g.fillStyle(0x5c3c20, 1); g.fillRect(hx, 16, 2, 22 + ext);
-        const hw = 16 + grow * 1.5, hh = 13 + grow;                                // bigger head w/ axe+knock
-        g.fillStyle(headCol, 1); g.fillRect(hx + 3 - hw, 13, hw, hh);
-        g.fillStyle(shade(headCol, 0.78), 1); g.fillRect(hx + 3 - hw, 13 + hh - 4, hw, 4);
-        g.fillStyle(0xffffff, 0.45); g.fillRect(hx + 3 - hw + 2, 15, hw - 6, 2);   // glint
+        const hx = 34, shaftLen = 22 + ext;
+        // shaft — material upgrades with crit-chance
+        g.fillStyle(handleCol, 1); g.fillRect(hx, 16, 5, shaftLen);
+        g.fillStyle(shade(handleCol, 0.7), 1); g.fillRect(hx, 16, 2, shaftLen);
+        if (ccLv >= 1) { g.fillStyle(shade(handleCol, 0.55), 1); for (let yy = 22; yy < 16 + shaftLen; yy += 7) g.fillRect(hx, yy, 5, 1.5); }   // grip bands
+        if (ccLv >= 3) { g.fillStyle(0xfff0b0, 1); g.fillRect(hx - 1, 16 + shaftLen - 3, 7, 3); }   // gold pommel
+        // head — grows with axe+knock
+        const hw = 16 + grow * 1.5, hh = 13 + grow, hl = hx + 3 - hw;
+        g.fillStyle(headCol, 1); g.fillRect(hl, 13, hw, hh);
+        g.fillStyle(shade(headCol, 0.78), 1); g.fillRect(hl, 13 + hh - 4, hw, 4);
+        g.fillStyle(0xffffff, 0.45); g.fillRect(hl + 2, 15, hw - 6, 2);            // glint
+        // crit-damage → titanium edge + embedded gems on the head
+        const gem = (gx, gy, col) => {
+            g.fillStyle(col, 1); g.fillPoints([{ x: gx, y: gy - 3 }, { x: gx + 3, y: gy }, { x: gx, y: gy + 3 }, { x: gx - 3, y: gy }], true);
+            g.fillStyle(0xffffff, 0.7); g.fillRect(gx - 1.5, gy - 1.5, 1.5, 1.5);
+        };
+        if (cdLv >= 1) { g.fillStyle(0xeaf6ff, 1); g.fillRect(hl, 13, hw, 2); }    // titanium sheen
+        if (cdLv >= 2) gem(hl + hw * 0.4, 13 + hh / 2, 0x8ff0ff);                  // diamond
+        if (cdLv >= 3) gem(hl + hw * 0.7, 13 + hh / 2, 0xff8fe0);                  // second gem
+        if (cdLv >= 4) gem(hl + hw * 0.25, 13 + hh / 2, 0xa8ff9f);                 // third gem
         g.generateTexture('btn_axe', 56, 56); g.clear(); g.destroy();
     }
 
@@ -819,9 +834,11 @@ export default class GameScene extends Phaser.Scene {
             boots: this.upgLevels.boots || 0,
             reach: this.upgLevels.reach || 0,
             swift: this.upgLevels.swift || 0,
-            knock: this.upgLevels.knock || 0
+            knock: this.upgLevels.knock || 0,
+            critdmg: this.upgLevels.critdmg || 0,
+            crit: this.upgLevels.crit || 0
         };
-        const sig = `${gear.armor}-${gear.helm}-${gear.axe}-${gear.vit}-${gear.boots}-${gear.reach}-${gear.swift}-${gear.knock}`;
+        const sig = `${gear.armor}-${gear.helm}-${gear.axe}-${gear.vit}-${gear.boots}-${gear.reach}-${gear.swift}-${gear.knock}-${gear.critdmg}-${gear.crit}`;
         if (sig !== this._gearSig) {
             this._gearSig = sig;
             generateAvatarTexture(this, 'player', this.char, gear);
