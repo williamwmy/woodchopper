@@ -38,6 +38,7 @@ export default class GameScene extends Phaser.Scene {
         this.wave = 1;
         // run stats (shown on game over)
         this.stats = { treesChopped: 0, enemiesKilled: 0, woodSpent: 0 };
+        this.dmgByNight = [];     // per-wave { player, tower } damage, for the graph
         this.phase = 'day';            // 'day' | 'night'
         this.phaseEnd = this.time.now + DAY_SECONDS * 1000;
         this.phaseDuration = DAY_SECONDS;
@@ -883,10 +884,18 @@ export default class GameScene extends Phaser.Scene {
         this.tweens.add({ targets: t, scale: 1, duration: 400, ease: 'Back.out' });
     }
 
+    // log damage dealt this night by 'player' (axe) or 'tower' (buildings)
+    addDmg(kind, amount) {
+        const w = this.wave;
+        if (!this.dmgByNight[w]) this.dmgByNight[w] = { player: 0, tower: 0 };
+        this.dmgByNight[w][kind] += amount;
+    }
+
     hitEnemy(e) {
         if (e.dead) return;
         const { dmg, crit } = this.rollDamage(this.axeDmg);
         e.hp -= dmg;
+        this.addDmg('player', Math.min(dmg, Math.max(0, e.hp + dmg)));   // count up to the kill, no overkill
         this.dmgNumber(e.x, e.y - 14, dmg, crit);
         if (crit) { this.sfx.crit(); this.cameras.main.shake(70, 0.005); this.burst(e.x, e.y, 'ember', 5); }
         this.sfx.hitEnemy();
@@ -1068,7 +1077,12 @@ export default class GameScene extends Phaser.Scene {
             const perkLine = perks.length
                 ? perks.map(pk => `${pk.icon} ${pk.name} ${p.perks[pk.key]}`).join('   ')
                 : 'Ingen ennå';
-            add(22, y, perkLine, { fontSize: '13px', fontFamily: 'Arial', color: '#cfe3d4', wordWrap: { width: W - 44 } });
+            y = add(22, y, perkLine, { fontSize: '13px', fontFamily: 'Arial', color: '#cfe3d4', wordWrap: { width: W - 44 } }).getBottomLeft().y + 14;
+
+            // --- damage graph: player vs towers, per night ---
+            add(22, y, '📊  Skade per natt — 🟦 du  🟧 tårn', { fontSize: '13px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166' });
+            y += 20;
+            this.drawDamageGraph(C, 22, y, W - 44, (H - 168) - y);
 
             // --- buttons anchored at the bottom ---
             this.pauseBtnAt(H - 152, '▶  FORTSETT', 0xc1440e, () => this.closePause());
@@ -1077,6 +1091,40 @@ export default class GameScene extends Phaser.Scene {
             this.pauseBtnAt(H - 44, '🏠  HOVEDMENY', 0x3a4049,
                 () => this.confirmPause('Gå til hovedmenyen?\nDenne runden går tapt (rekorder lagres bare ved tap).', () => this.scene.start('MenuScene')));
         });
+    }
+
+    // grouped bar chart of player vs tower damage for each night (last 12)
+    drawDamageGraph(C, gx, gy, gw, gh) {
+        if (gh < 46) return;   // not enough room on a short screen
+        const data = [];
+        for (let w = 1; w <= this.wave; w++) {
+            if (this.dmgByNight[w]) data.push({ n: w, ...this.dmgByNight[w] });
+        }
+        if (!data.length) {
+            C.add(this.add.text(gx, gy, 'Ingen kampdata ennå', { fontSize: '12px', fontFamily: 'Arial', color: '#9fb08a' }).setOrigin(0, 0));
+            return;
+        }
+        const shown = data.slice(-12);
+        const maxV = Math.max(1, ...shown.map(d => Math.max(d.player, d.tower)));
+        const barAreaH = gh - 14;   // leave room for night labels under the axis
+        const g = this.add.graphics(); C.add(g);
+        // baseline
+        g.lineStyle(1, 0x44505a, 0.9); g.beginPath();
+        g.moveTo(gx, gy + barAreaH); g.lineTo(gx + gw, gy + barAreaH); g.strokePath();
+        const groupW = gw / shown.length;
+        const barW = Math.max(2, groupW * 0.34);
+        shown.forEach((d, i) => {
+            const cx = gx + i * groupW + groupW / 2;
+            const ph = (d.player / maxV) * barAreaH, th = (d.tower / maxV) * barAreaH;
+            g.fillStyle(0x5b9cff, 0.95); g.fillRect(cx - barW - 1, gy + barAreaH - ph, barW, ph);
+            g.fillStyle(0xff9e2c, 0.95); g.fillRect(cx + 1, gy + barAreaH - th, barW, th);
+            // night label (every other when crowded)
+            if (shown.length <= 8 || i % 2 === 0) {
+                C.add(this.add.text(cx, gy + barAreaH + 2, `${d.n}`, { fontSize: '9px', fontFamily: 'Arial', color: '#8fa0aa' }).setOrigin(0.5, 0));
+            }
+        });
+        // peak value label
+        C.add(this.add.text(gx + gw, gy - 1, `topp ${Math.round(maxV)}`, { fontSize: '10px', fontFamily: 'Arial', color: '#8fa0aa' }).setOrigin(1, 0));
     }
 
     confirmPause(message, onYes) {
@@ -1652,6 +1700,7 @@ export default class GameScene extends Phaser.Scene {
     hurtEnemy(e, dmg) {
         if (e.dead) return;
         e.hp -= dmg;
+        this.addDmg('tower', Math.min(dmg, Math.max(0, e.hp + dmg)));   // no overkill
         this.dmgNumber(e.x, e.y - 14, dmg);
         if (e.hp <= 0) this.killEnemy(e);
     }
