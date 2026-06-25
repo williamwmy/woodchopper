@@ -89,7 +89,13 @@ export default class MenuScene extends Phaser.Scene {
             const r = this.add.rectangle(x, 26, 50, 26, on ? 0xc1440e : 0x223018, on ? 1 : 0.6)
                 .setStrokeStyle(2, on ? 0xffd166 : 0x4a6b3a).setInteractive({ useHandCursor: true });
             this.add.text(x, 26, label, { fontSize: '13px', fontFamily: 'Arial', fontStyle: 'bold', color: on ? '#fff' : '#9fb08a' }).setOrigin(0.5);
-            r.on('pointerup', () => { if (getLang() !== code) { setLang(code); this.scene.restart(); } });
+            // defer the restart out of the input callback — restarting the scene
+            // synchronously from pointerup crashes Phaser's input iteration
+            r.on('pointerup', () => {
+                if (this._switching || getLang() === code) return;
+                this._switching = true; setLang(code);
+                this.time.delayedCall(0, () => this.scene.restart());
+            });
         };
         this.add.text(W - 116, 12, t('menu.language'), { fontSize: '10px', fontFamily: 'Arial', color: '#8aa090' }).setOrigin(0, 0);
         mk(W - 86, 'en', 'EN');
