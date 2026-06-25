@@ -961,12 +961,12 @@ export default class GameScene extends Phaser.Scene {
             { key: 'vit', icon: '❤️', name: 'Vitalitet', desc: '+30 maks liv & full heal', apply: () => { this.maxHp += 30; this.hp = this.maxHp; } },
             { key: 'fire', icon: '🔥', name: 'Større bål', desc: '+40 brensel (fylles opp)', apply: () => { this.fuelMax += 40; this.fuel = Math.min(this.fuelMax, this.fuel + 40); } },
             { key: 'reach', icon: '🌀', name: 'Lang rekkevidde', desc: '+18 sving-rekkevidde', apply: () => { this.swingRange += 18; } },
-            { key: 'swift', icon: '⚡', name: 'Hurtige hugg', desc: 'Sving raskere', apply: () => { this.swingDelay = Math.max(120, this.swingDelay - 50); } },
+            { key: 'swift', icon: '⚡', name: 'Hurtige hugg', desc: 'Sving raskere', apply: () => { this.swingDelay = Math.max(120, this.swingDelay - 50); }, maxed: () => this.swingDelay <= 120 },
             { key: 'lumber', icon: '🪵', name: 'Effektiv hugger', desc: '+2 ved per tre', apply: () => { this.treeBonus += 2; } },
             { key: 'hunter', icon: '🩸', name: 'Rovdyr', desc: '+3 ved per drepte fiende', apply: () => { this.killWood += 3; } },
             { key: 'ember', icon: '🛡️', name: 'Bålmester', desc: '-25% brenselforbruk', apply: () => { this.fuelDrainMult *= 0.75; } },
             { key: 'regen', icon: '💚', name: 'Helbredende ild', desc: 'Heal nå + 15 liv hvert daggry', apply: () => { this.dawnHeal += 15; this.hp = Math.min(this.maxHp, this.hp + 30); } },
-            { key: 'crit', icon: '🎯', name: 'Kritisk treff', desc: '+10% kritisk sjanse', apply: () => { this.critChance = Math.min(1, this.critChance + 0.10); } },
+            { key: 'crit', icon: '🎯', name: 'Kritisk treff', desc: '+10% kritisk sjanse', apply: () => { this.critChance = Math.min(1, this.critChance + 0.10); }, maxed: () => this.critChance >= 1 },
             { key: 'critdmg', icon: '💥', name: 'Dødelig hugg', desc: '+50% kritisk skade', apply: () => { this.critMult += 0.5; } },
             { key: 'knock', icon: '🥊', name: 'Kraftig slag', desc: '+12 tilbakeslag på fiender', apply: () => { this.knockback += 12; } },
             { key: 'armor', icon: '🪖', name: 'Rustning', desc: '+4 rustning (mindre skade per treff)', apply: () => { this.armor += 4; } }
@@ -1000,15 +1000,81 @@ export default class GameScene extends Phaser.Scene {
         this.pauseC.add(r); this.pauseC.add(t);
     }
 
+    // a pause button anchored at an absolute y (for the stats layout)
+    pauseBtnAt(y, label, color, fn) {
+        const r = this.add.rectangle(W / 2, y, 250, 46, color)
+            .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
+        const t = this.add.text(W / 2, y, label, {
+            fontSize: '18px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+        }).setOrigin(0.5);
+        r.on('pointerover', () => r.setScale(1.03));
+        r.on('pointerout', () => r.setScale(1));
+        r.on('pointerup', fn);
+        this.pauseC.add(r); this.pauseC.add(t);
+    }
+
     buildPauseMenu() {
         this.pausePanel(() => {
-            this.pauseC.add(this.add.text(W / 2, H / 2 - 140, 'PAUSE', {
-                fontSize: '36px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
+            const C = this.pauseC;
+            const add = (x, y, txt, style) => {
+                const t = this.add.text(x, y, txt, style).setOrigin(0, 0); C.add(t); return t;
+            };
+            const p = this.char;
+
+            C.add(this.add.text(W / 2, 30, '⏸ PAUSE', {
+                fontSize: '28px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
             }).setOrigin(0.5));
-            this.pauseButton(-72, '▶  FORTSETT', 0xc1440e, () => this.closePause());
-            this.pauseButton(0, '↻  START PÅ NYTT', 0x2a6b3a,
+            C.add(this.add.text(W / 2, 60, `${p.name} · Natt ${this.wave} · ${this.score} p`, {
+                fontSize: '13px', fontFamily: 'Arial', color: '#cfe3d4'
+            }).setOrigin(0.5));
+
+            // --- current effective stats (two columns) ---
+            const stats = [
+                ['🪓', 'Skade', `${this.axeDmg}`],
+                ['🎯', 'Krit', `${Math.round(this.critChance * 100)}% ×${this.critMult.toFixed(1)}`],
+                ['❤️', 'Maks liv', `${this.maxHp}`],
+                ['🪖', 'Rustning', `${this.armor}`],
+                ['👢', 'Fart', `${Math.round(this.moveSpeed)}`],
+                ['⚡', 'Sving', `${this.swingDelay}ms${this.swingDelay <= 120 ? ' (maks)' : ''}`],
+                ['🌀', 'Rekkevidde', `${this.swingRange}`],
+                ['🥊', 'Tilbakeslag', `${this.knockback}`],
+                ['🔥', 'Bål', `${this.fuelMax}`],
+                ['🛡️', 'Bålvern', `${Math.round((1 - this.fuelDrainMult) * 100)}%`],
+                ['🪵', 'Ved/tre', `${3 + this.treeBonus + this.buildCounts.sagbruk}`],
+                ['🩸', 'Ved/drep', `${this.killWood}`]
+            ];
+            const colX = [22, W / 2 + 8];
+            const sY = 88, rowH = 21;
+            stats.forEach((s, i) => {
+                add(colX[i % 2], sY + Math.floor(i / 2) * rowH, `${s[0]} ${s[1]}: ${s[2]}`,
+                    { fontSize: '13px', fontFamily: 'Arial', color: '#ffffff' });
+            });
+            let y = sY + Math.ceil(stats.length / 2) * rowH + 12;
+
+            // --- in-run upgrades chosen ---
+            const byKey = {}; this.upgradePool().forEach(u => byKey[u.key] = u);
+            const chosen = Object.entries(this.upgLevels).filter(([, v]) => v > 0);
+            add(22, y, '🎁  Valgte forsterkninger', { fontSize: '14px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166' });
+            y += 22;
+            const upLine = chosen.length
+                ? chosen.map(([k, v]) => `${byKey[k] ? byKey[k].icon : '?'}${v > 1 ? '×' + v : ''}`).join('   ')
+                : 'Ingen valgt ennå';
+            y = add(22, y, upLine, { fontSize: '18px', fontFamily: 'Arial', color: '#ffffff', wordWrap: { width: W - 44 } }).getBottomLeft().y + 10;
+
+            // --- permanent perks ---
+            const perks = PERKS.filter(pk => (p.perks[pk.key] || 0) > 0);
+            add(22, y, '⭐  Permanente perks', { fontSize: '14px', fontFamily: 'Arial', fontStyle: 'bold', color: '#9fd0ff' });
+            y += 22;
+            const perkLine = perks.length
+                ? perks.map(pk => `${pk.icon} ${pk.name} ${p.perks[pk.key]}`).join('   ')
+                : 'Ingen ennå';
+            add(22, y, perkLine, { fontSize: '13px', fontFamily: 'Arial', color: '#cfe3d4', wordWrap: { width: W - 44 } });
+
+            // --- buttons anchored at the bottom ---
+            this.pauseBtnAt(H - 152, '▶  FORTSETT', 0xc1440e, () => this.closePause());
+            this.pauseBtnAt(H - 98, '↻  START PÅ NYTT', 0x2a6b3a,
                 () => this.confirmPause('Starte runden på nytt?\nFremgangen i denne runden går tapt.', () => this.scene.restart()));
-            this.pauseButton(72, '🏠  HOVEDMENY', 0x3a4049,
+            this.pauseBtnAt(H - 44, '🏠  HOVEDMENY', 0x3a4049,
                 () => this.confirmPause('Gå til hovedmenyen?\nDenne runden går tapt (rekorder lagres bare ved tap).', () => this.scene.start('MenuScene')));
         });
     }
@@ -1035,8 +1101,9 @@ export default class GameScene extends Phaser.Scene {
     offerUpgrades(headline) {
         this.menuOpen = true;
         this.swingHeld = false;   // stop auto-swinging while choosing
-        // pick 3 distinct random upgrades
-        const pool = Phaser.Utils.Array.Shuffle(this.upgradePool().slice());
+        // pick 3 distinct random upgrades — skip any that have hit their cap
+        const available = this.upgradePool().filter(it => !(it.maxed && it.maxed()));
+        const pool = Phaser.Utils.Array.Shuffle(available);
         const picks = pool.slice(0, 3);
 
         const c = this.add.container(0, 0).setDepth(4000);
