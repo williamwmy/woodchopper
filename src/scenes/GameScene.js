@@ -64,6 +64,7 @@ export default class GameScene extends Phaser.Scene {
         this.headArmor = 0;       // helmet: extra flat damage reduction
         this.fuelDrainMult = 1;   // bålmester reduces this
         this.dawnHeal = 0;        // hp restored each dawn
+        this.fireHeal = 0;        // hp/sec regained while standing in the fire's glow
         this.upgLevels = {};      // how many times each upgrade was taken
         this.slashColor = 0xffffff;
         this.slashScale = 1;
@@ -1384,7 +1385,7 @@ export default class GameScene extends Phaser.Scene {
             { key: 'lumber', icon: '🪵', name: t('upg.lumber.name'), desc: t('upg.lumber.desc'), apply: () => { this.treeBonus += 2; } },
             { key: 'hunter', icon: '🩸', name: t('upg.hunter.name'), desc: t('upg.hunter.desc'), apply: () => { this.killWood += 3; } },
             { key: 'ember', icon: '🛡️', name: t('upg.ember.name'), desc: t('upg.ember.desc'), apply: () => { this.fuelDrainMult *= 0.75; } },
-            { key: 'regen', icon: '💚', name: t('upg.regen.name'), desc: t('upg.regen.desc'), apply: () => { this.dawnHeal += 15; this.hp = Math.min(this.maxHp, this.hp + 30); } },
+            { key: 'regen', icon: '💚', name: t('upg.regen.name'), desc: t('upg.regen.desc'), apply: () => { this.fireHeal += 4; this.hp = Math.min(this.maxHp, this.hp + 25); } },
             { key: 'crit', icon: '🎯', name: t('upg.crit.name'), desc: t('upg.crit.desc'), apply: () => { this.critChance = Math.min(1, this.critChance + 0.10); }, maxed: () => this.critChance >= 1 },
             { key: 'critdmg', icon: '💥', name: t('upg.critdmg.name'), desc: t('upg.critdmg.desc'), apply: () => { this.critMult += 0.5; } },
             { key: 'knock', icon: '🥊', name: t('upg.knock.name'), desc: t('upg.knock.desc'), apply: () => { this.knockback += 12; } },
@@ -2469,8 +2470,14 @@ export default class GameScene extends Phaser.Scene {
         if (this.boss) this.updateBoss(dt, time);
         this.updateStructures(time);
 
-        // huts heal the player only while standing within their radius (stacks)
+        // healing fire: regenerate HP while standing in the fire's warm glow,
+        // just outside the burn zone — active sustain you can use mid-fight
         let healPerSec = 0;
+        if (this.fireHeal > 0) {
+            const df = Phaser.Math.Distance.Between(this.player.x, this.player.y, FIRE.x, FIRE.y);
+            if (df > 30 && df < 130) healPerSec += this.fireHeal;
+        }
+        // huts heal the player only while standing within their radius (stacks)
         this.structures.forEach(s => {
             if (s.dead || s.type !== 'hus') return;
             if (Phaser.Math.Distance.Between(this.player.x, this.player.y, s.x, s.y) < this.hutRadius(s.lvl || 1)) {
