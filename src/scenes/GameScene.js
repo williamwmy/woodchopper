@@ -14,6 +14,7 @@ let PLAY_BOTTOM = 610;     // ...and ends above controls (set in create)
 const FEED_COST = 5;
 const FEED_FUEL = 18;
 const FEED_CD = 280;       // ms between feeds (button recharges visibly)
+const FEED_RANGE = 115;    // must stand this close to the fire to feed it
 
 export default class GameScene extends Phaser.Scene {
     constructor() {
@@ -439,6 +440,65 @@ export default class GameScene extends Phaser.Scene {
         vg.refresh();
 
         this.makeUpgradeIcons();
+        this.makeButtonIcons();
+    }
+
+    // static control-button icons (feed flame, build hammer, padlock)
+    makeButtonIcons() {
+        const g = this.add.graphics();
+        const tex = (k, w, h) => { g.generateTexture(k, w, h); g.clear(); };
+
+        // feed — flame
+        g.fillStyle(0xd63a16, 1); g.fillTriangle(5, 30, 16, 2, 27, 30); g.fillEllipse(16, 28, 22, 12);
+        g.fillStyle(0xff8a2e, 1); g.fillTriangle(9, 30, 16, 11, 23, 30); g.fillEllipse(16, 29, 13, 8);
+        g.fillStyle(0xffd770, 1); g.fillEllipse(16, 29, 6, 6);
+        tex('btn_fire', 32, 34);
+
+        // shop — a builder's hammer
+        g.fillStyle(0x7a5230, 1); g.fillRect(14, 11, 4, 18);
+        g.fillStyle(0x5c3c20, 1); g.fillRect(14, 11, 1.5, 18);
+        g.fillStyle(0x9aa3ad, 1); g.fillRoundedRect(6, 5, 20, 9, 2);
+        g.fillStyle(0xc2cad3, 1); g.fillRect(6, 5, 20, 3);
+        tex('btn_shop', 32, 32);
+
+        // padlock — closed
+        g.fillStyle(0xcaa23a, 1); g.fillRect(9, 6, 3, 9); g.fillRect(18, 6, 3, 9); g.fillRect(9, 6, 12, 3);
+        g.fillStyle(0xffd166, 1); g.fillRoundedRect(6, 13, 18, 13, 3);
+        g.fillStyle(0x4a3208, 1); g.fillCircle(15, 18, 2.2); g.fillRect(14, 18, 2, 5);
+        tex('btn_lock', 30, 30);
+
+        // padlock — open (shackle lifted aside)
+        g.fillStyle(0xcaa23a, 1); g.fillRect(18, 4, 3, 11); g.fillRect(12, 4, 9, 3);
+        g.fillStyle(0xffd166, 1); g.fillRoundedRect(6, 13, 18, 13, 3);
+        g.fillStyle(0x4a3208, 1); g.fillCircle(15, 18, 2.2); g.fillRect(14, 18, 2, 5);
+        tex('btn_unlock', 30, 30);
+
+        g.destroy();
+    }
+
+    // the swing button's axe icon, redrawn from the player's axe upgrades:
+    // colour by axe tier, bigger head from axe+knockback, longer shaft from reach
+    makeAxeButtonTex(gear) {
+        const g = this.add.graphics();
+        if (this.textures.exists('btn_axe')) this.textures.remove('btn_axe');
+        const shade = (c, f) => {
+            const r = Math.min(255, ((c >> 16) & 255) * f) | 0;
+            const gg = Math.min(255, ((c >> 8) & 255) * f) | 0;
+            const b = Math.min(255, (c & 255) * f) | 0;
+            return (r << 16) | (gg << 8) | b;
+        };
+        const axeLv = gear.axe || 0, knockLv = gear.knock || 0, reachLv = gear.reach || 0;
+        const headCol = [0xe8eef4, 0xffe08a, 0xffae42, 0xff7a2b, 0xff5a2b][Math.min(axeLv, 4)];
+        const grow = Math.min(11, axeLv + Math.max(0, knockLv - 1));
+        const ext = Math.min(16, reachLv * 3.5);
+        const hx = 34;
+        g.fillStyle(0x7a5230, 1); g.fillRect(hx, 16, 5, 22 + ext);                 // shaft (longer w/ reach)
+        g.fillStyle(0x5c3c20, 1); g.fillRect(hx, 16, 2, 22 + ext);
+        const hw = 16 + grow * 1.5, hh = 13 + grow;                                // bigger head w/ axe+knock
+        g.fillStyle(headCol, 1); g.fillRect(hx + 3 - hw, 13, hw, hh);
+        g.fillStyle(shade(headCol, 0.78), 1); g.fillRect(hx + 3 - hw, 13 + hh - 4, hw, 4);
+        g.fillStyle(0xffffff, 0.45); g.fillRect(hx + 3 - hw + 2, 15, hw - 6, 2);   // glint
+        g.generateTexture('btn_axe', 56, 56); g.clear(); g.destroy();
     }
 
     // custom 40×40 icons for the upgrade cards (replaces emoji), keyed 'upg_<key>'
@@ -766,6 +826,8 @@ export default class GameScene extends Phaser.Scene {
             this._gearSig = sig;
             generateAvatarTexture(this, 'player', this.char, gear);
             this.player.setTexture('player');
+            this.makeAxeButtonTex(gear);                        // mirror axe upgrades on the swing button
+            if (this.swingIcon) this.swingIcon.setTexture('btn_axe');
         }
 
         // feedback when armor was just taken: steely flash + a proud scale pop
@@ -899,15 +961,15 @@ export default class GameScene extends Phaser.Scene {
         this.swingBtn = this.add.circle(swingX, swingY, 56, 0xc1440e, 0.6)
             .setStrokeStyle(4, 0xffd166).setScrollFactor(0).setDepth(3000)
             .setInteractive({ useHandCursor: true });
-        this.add.text(swingX, swingY, '🪓', { fontSize: '42px' }).setOrigin(0.5).setDepth(3001).setAlpha(0.92);
+        this.swingIcon = this.add.image(swingX, swingY, 'btn_axe').setOrigin(0.5).setDepth(3001).setScrollFactor(0).setAlpha(0.95);
 
         // lock affordance below the swing button — only visible while holding or locked
         this.swingLocked = localStorage.getItem('emberwood_autoattack') === '1';
         this.lockPos = { x: swingX, y: swingY + 84, r: 30 };
         this.lockBtn = this.add.circle(this.lockPos.x, this.lockPos.y, 30, 0x2a3a2a, 0.6)
             .setStrokeStyle(3, 0xffd166).setScrollFactor(0).setDepth(3000);
-        this.lockIcon = this.add.text(this.lockPos.x, this.lockPos.y, '🔒', { fontSize: '20px' })
-            .setOrigin(0.5).setDepth(3001);
+        this.lockIcon = this.add.image(this.lockPos.x, this.lockPos.y, 'btn_lock')
+            .setOrigin(0.5).setDepth(3001).setScrollFactor(0);
         this.swingPointerId = null;
         this.refreshLock(false);
 
@@ -941,7 +1003,7 @@ export default class GameScene extends Phaser.Scene {
         this.feedBtn = this.add.circle(feedX, feedY, 34, 0x2a6b3a, 0.58)
             .setStrokeStyle(3, 0xffd166).setScrollFactor(0).setDepth(3000)
             .setInteractive({ useHandCursor: true });
-        this.feedIcon = this.add.text(feedX, feedY, '🔥', { fontSize: '24px' }).setOrigin(0.5).setDepth(3001).setAlpha(0.92);
+        this.feedIcon = this.add.image(feedX, feedY, 'btn_fire').setOrigin(0.5).setDepth(3001).setScrollFactor(0).setAlpha(0.92);
         // dark wedge that shrinks as the button recharges after a feed
         this.feedCdG = this.add.graphics().setScrollFactor(0).setDepth(3002);
         this.feedBtn.on('pointerdown', () => { this.feedBtn.setScale(0.9); this.feedFire(); });
@@ -952,7 +1014,7 @@ export default class GameScene extends Phaser.Scene {
         this.shopBtn = this.add.circle(shopX, shopY, 30, 0x4a6b3a, 0.58)
             .setStrokeStyle(3, 0xffd166).setScrollFactor(0).setDepth(3000)
             .setInteractive({ useHandCursor: true });
-        this.shopBtnIcon = this.add.text(shopX, shopY, '🛒', { fontSize: '22px' }).setOrigin(0.5).setDepth(3001).setAlpha(0.92);
+        this.shopBtnIcon = this.add.image(shopX, shopY, 'btn_shop').setOrigin(0.5).setDepth(3001).setScrollFactor(0).setAlpha(0.92);
         this.shopBtn.on('pointerdown', () => { this.shopBtn.setScale(0.9); this.openShop(); });
         this.shopBtn.on('pointerup', () => this.shopBtn.setScale(1));
         this.shopBtn.on('pointerout', () => this.shopBtn.setScale(1));
@@ -984,7 +1046,7 @@ export default class GameScene extends Phaser.Scene {
         const locked = this.swingLocked;
         this.lockBtn.setFillStyle(locked ? 0xc1440e : (armed ? 0x4a6b3a : 0x2a3a2a), locked ? 0.85 : (armed ? 0.8 : 0.5));
         this.lockBtn.setStrokeStyle(3, (locked || armed) ? 0xffd166 : 0x6b7d52);
-        this.lockIcon.setText(locked ? '🔒' : '🔓').setAlpha(locked || armed ? 1 : 0.7);
+        this.lockIcon.setTexture(locked ? 'btn_lock' : 'btn_unlock').setAlpha(locked || armed ? 1 : 0.7);
     }
 
     // during the day, a tap on an upgradeable tower opens its menu — don't also
@@ -1223,7 +1285,11 @@ export default class GameScene extends Phaser.Scene {
         const remain = (this.feedCd || 0) - this.time.now;
         const g = this.feedCdG;
         g.clear();
-        if (remain > 0) {
+        const far = this.player && Phaser.Math.Distance.Between(this.player.x, this.player.y, FIRE.x, FIRE.y) > FEED_RANGE;
+        if (far) {                                       // too far from the fire → disabled
+            this.feedBtn.setFillStyle(0x3a3f44, 0.5);
+            this.feedIcon.setAlpha(0.28);
+        } else if (remain > 0) {
             const ratio = 1 - remain / FEED_CD;          // 0 → just fed, 1 → ready
             this.feedBtn.setFillStyle(0x223a2b, 0.58);   // dimmed while cooling
             this.feedIcon.setAlpha(0.35);
@@ -1240,6 +1306,9 @@ export default class GameScene extends Phaser.Scene {
     feedFire() {
         if (this.gameIsOver || this.menuOpen) return;
         if (this.time.now < (this.feedCd || 0)) return;   // small cooldown — no spamming
+        if (Phaser.Math.Distance.Between(this.player.x, this.player.y, FIRE.x, FIRE.y) > FEED_RANGE) {
+            this.sfx.deny(); this.floatText(this.player.x, this.player.y - 30, 'For langt fra bålet', '#ff6b6b'); return;
+        }
         if (this.wood < FEED_COST) { this.sfx.deny(); this.floatText(FIRE.x, FIRE.y - 40, 'Mangler ved!', '#ff6b6b'); return; }
         if (this.fuel >= this.fuelMax) { this.floatText(FIRE.x, FIRE.y - 40, 'Bålet er fullt', '#cfe3d4'); return; }
         this.feedCd = this.time.now + FEED_CD;
