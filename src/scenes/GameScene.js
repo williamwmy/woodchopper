@@ -1828,7 +1828,8 @@ export default class GameScene extends Phaser.Scene {
         this.wood -= cost;
         this.stats.woodSpent += cost;
         this.buildCounts[item.key]++;
-        this.spawnStructure(item.key, x, y);
+        const s = this.spawnStructure(item.key, x, y);
+        s.woodSpent = cost;                    // track total wood in this build (for refunds)
         this.sfx.build();
         this.updateHUD();
 
@@ -1980,6 +1981,7 @@ export default class GameScene extends Phaser.Scene {
             if (maxed) return;
             if (this.wood < cost) { this.sfx.deny(); this.floatText(W / 2, H / 2 + 80, 'For lite ved!', '#ff6b6b'); return; }
             this.wood -= cost; this.stats.woodSpent += cost; s.lvl++;
+            s.woodSpent = (s.woodSpent || 0) + cost;   // count upgrades toward the refund value
             if (isFence) { s.maxHp = this.fenceHp(s.lvl); s.hp = s.maxHp; s.setAlpha(1); }   // forsterk + reparer
             this.refreshStructLevel(s);   // badge + level tint/size
             this.sfx.upgrade();
@@ -1989,10 +1991,26 @@ export default class GameScene extends Phaser.Scene {
             closeUp();
         });
 
-        const cancel = this.add.rectangle(W / 2, H / 2 + 110, 260, 46, 0xc1440e)
+        // dismantle: free the slot and refund 80% of all wood put into it
+        const refund = Math.round((s.woodSpent || s.buildBase || 0) * 0.8);
+        const demo = this.add.rectangle(W / 2, H / 2 + 108, 260, 46, 0x7a3a18)
+            .setStrokeStyle(3, 0xffb066).setInteractive({ useHandCursor: true });
+        c.add(demo);
+        c.add(this.add.text(W / 2, H / 2 + 108, `DEMONTER · +🪵 ${refund}`, {
+            fontSize: '17px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+        }).setOrigin(0.5));
+        demo.on('pointerup', () => {
+            this.wood += refund; this.sfx.build();
+            this.floatText(s.x, s.y - 20, `+${refund} 🪵`, '#ffd166');
+            this.destroyStructure(s);          // frees the slot (decrements buildCounts)
+            this.updateHUD();
+            closeUp();
+        });
+
+        const cancel = this.add.rectangle(W / 2, H / 2 + 162, 260, 44, 0xc1440e)
             .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
         c.add(cancel);
-        c.add(this.add.text(W / 2, H / 2 + 110, 'LUKK', {
+        c.add(this.add.text(W / 2, H / 2 + 162, 'LUKK', {
             fontSize: '17px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
         }).setOrigin(0.5));
         cancel.on('pointerup', closeUp);
@@ -2013,10 +2031,10 @@ export default class GameScene extends Phaser.Scene {
 
     // stats per active building type
     static SPEC = {
-        taarn:       { cd: 850,  range: 130, dmg: 12, tex: 'bolt' },
-        iskanon:     { cd: 1100, range: 125, dmg: 5,  tex: 'icebolt', slow: 0.45, slowMs: 2500 },
-        bombekaster: { cd: 1600, range: 165, dmg: 14, tex: 'shell', splash: 88, arc: true },
-        lyntaarn:    { cd: 1100, range: 172, dmg: 8,  chain: 3, chainR: 90 },
+        taarn:       { cd: 850,  range: 130, dmg: 20, tex: 'bolt' },
+        iskanon:     { cd: 1100, range: 125, dmg: 8,  tex: 'icebolt', slow: 0.45, slowMs: 2500 },
+        bombekaster: { cd: 1600, range: 165, dmg: 22, tex: 'shell', splash: 88, arc: true },
+        lyntaarn:    { cd: 1100, range: 172, dmg: 12, chain: 3, chainR: 90 },
         piggfelle:   { cd: 450,  range: 58,  dmg: 8,  trap: true, slow: 0.6, slowMs: 800 }
     };
 
