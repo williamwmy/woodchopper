@@ -139,6 +139,19 @@ export function generateAvatarTexture(scene, key, look, gear = {}) {
     const bootLv = gear.boots || 0;
     const reachLv = gear.reach || 0;
     const swiftLv = gear.swift || 0;
+    const lumberLv = gear.lumber || 0;
+    const hunterLv = gear.hunter || 0;
+
+    // a bundle of firewood strapped to the back (Effektiv hugger), drawn behind
+    if (lumberLv >= 1) {
+        const n = Math.min(4, 1 + lumberLv);
+        for (let i = 0; i < n; i++) {
+            const lx = 1 + i * 3;
+            g.fillStyle(0x5a3a1e, 1); g.fillRect(lx, 5 - i, 4, 22);
+            g.fillStyle(0xc89b6a, 1); g.fillRect(lx, 5 - i, 4, 3);   // cut ends on top
+        }
+        g.fillStyle(0x3a2414, 1); g.fillRect(1, 17, 12, 2);         // strap
+    }
 
     // a mighty cape billows behind once well armoured (drawn first, peeks at edges)
     if (armorTier >= 3) {
@@ -172,11 +185,27 @@ export function generateAvatarTexture(scene, key, look, gear = {}) {
         g.fillStyle(0x6e5740, 1); g.fillRect(7 - w, 15, 22 + 2 * w, 1);
     }
 
+    // predator's tooth necklace across the chest (Rovdyr, first level)
+    if (hunterLv >= 1) {
+        g.fillStyle(0x2a1d10, 1); g.fillRect(12, 17, 12, 1);          // cord
+        g.fillStyle(0xede4cf, 1);
+        g.fillTriangle(14, 18, 16, 18, 15, 22);
+        g.fillTriangle(18, 18, 20, 18, 19, 23);
+        g.fillTriangle(22, 18, 24, 18, 23, 21);
+    }
+
     // head
     g.fillStyle(skin, 1); g.fillRect(12, 6, 12, 11);
     g.fillStyle(shade(skin, 0.86), 1); g.fillRect(20, 6, 4, 11);
     // eyes
     g.fillStyle(0x2a2a30, 1); g.fillRect(15, 11, 2, 2); g.fillRect(20, 11, 2, 2);
+    // war paint once you stack Rovdyr further
+    if (hunterLv >= 2) {
+        g.fillStyle(0xc8283a, 1); g.fillRect(13, 13, 4, 2); g.fillRect(19, 13, 4, 2);   // cheek stripes
+    }
+    if (hunterLv >= 3) {
+        g.fillStyle(0xc8283a, 1); g.fillRect(15, 7, 6, 2);                              // forehead mark
+    }
 
     // hair on top
     g.fillStyle(hair, 1); g.fillRect(11, 3, 14, 5);

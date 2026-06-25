@@ -841,8 +841,9 @@ export default class GameScene extends Phaser.Scene {
         this.playerAura.setAlpha(Math.min(0.55, axe * 0.13));
         this.playerAura.setScale(0.32 + axe * 0.1);
 
-        // the lumberjack himself bulks up a little
-        this.player.setScale(1 + Math.min(0.22, axe * 0.05));
+        // the lumberjack bulks up with axe power and grows with vitality
+        const vit = this.upgLevels.vit || 0;
+        this.player.setScale(1 + Math.min(0.22, axe * 0.05) + Math.min(0.28, vit * 0.05));
 
         // Bålmester → bigger/better firewood pile under the flame
         const emberLv = this.upgLevels.ember || 0;
@@ -865,9 +866,11 @@ export default class GameScene extends Phaser.Scene {
             swift: this.upgLevels.swift || 0,
             knock: this.upgLevels.knock || 0,
             critdmg: this.upgLevels.critdmg || 0,
-            crit: this.upgLevels.crit || 0
+            crit: this.upgLevels.crit || 0,
+            lumber: this.upgLevels.lumber || 0,
+            hunter: this.upgLevels.hunter || 0
         };
-        const sig = `${gear.armor}-${gear.helm}-${gear.axe}-${gear.vit}-${gear.boots}-${gear.reach}-${gear.swift}-${gear.knock}-${gear.critdmg}-${gear.crit}`;
+        const sig = `${gear.armor}-${gear.helm}-${gear.axe}-${gear.vit}-${gear.boots}-${gear.reach}-${gear.swift}-${gear.knock}-${gear.critdmg}-${gear.crit}-${gear.lumber}-${gear.hunter}`;
         if (sig !== this._gearSig) {
             this._gearSig = sig;
             generateAvatarTexture(this, 'player', this.char, gear);
