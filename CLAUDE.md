@@ -114,7 +114,14 @@ upgrades, shop/building, phases (day/night), and `update()`.
   `ranged` spec and fire dodgeable bolts at the player (`enemyShoot` →
   `this.enemyShots`, moved/collided in `updateEnemyShots`); bolt damage is based
   on the night and capped so it chips rather than one-shots, so you must keep
-  moving. **Elite escalation** (`eliteChance`, from night 25):
+  moving. **Final boss** (night 50, `startBossNight`/`spawnBoss`/`updateBoss`): a
+  single colossal enemy (~half the screen) appears alone — slow, immune to
+  freeze/snare/knockback, with a top HP bar. It advances on the fire, but stops
+  to smash the nearest structure in its body, destroying it after X seconds where
+  X = that structure's level; it deals contact damage and gnaws the fire. Killing
+  it (huge HP) ends the run in victory: `killBoss` → `victorySequence` (congrats +
+  fanfare) → milestone claims → `showGameOver(reason, true)`. **Elite escalation**
+  (`eliteChance`, from night 25):
   a growing share spawn buffed (×1.7 hp, ×1.35 dmg, bigger) with a glowing red
   `e.aura` glow that trails them — so it keeps climbing past night 40 even after
   every type is out (clean up `e.aura` wherever the enemy is destroyed). Ice-

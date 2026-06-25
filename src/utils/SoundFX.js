@@ -133,4 +133,5 @@ export class SoundFX {
     lowFuel()    { this.voice(440, 0.13, { type: 'triangle', vol: 0.2, slideTo: 320 }); }
     crit()       { this.voice(880, 0.12, { type: 'triangle', vol: 0.24, slideTo: 1400 }); this.noise(0.05, 0.18, 3200); }
     zap()        { this.noise(0.14, 0.16, 4200); this.voice(1200, 0.1, { type: 'triangle', vol: 0.12, slideTo: 360 }); }
+    fanfare()    { this.arp([523, 659, 784, 1047], 0.13, { type: 'triangle', vol: 0.34, reverb: true }); this.time(() => this.arp([784, 1047, 1319, 1568], 0.12, { type: 'sine', vol: 0.3, reverb: true }), 0.55); }
 }

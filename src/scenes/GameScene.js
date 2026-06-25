@@ -86,6 +86,7 @@ export default class GameScene extends Phaser.Scene {
         this.trees = [];
         this.enemies = [];
         this.enemyShots = [];          // projectiles fired by ranged enemies
+        this.boss = null; this.won = false;
         this.structures = [];
         this.buildCounts = { gjerde: 0, taarn: 0, iskanon: 0, bombekaster: 0, lyntaarn: 0, piggfelle: 0, hus: 0, sagbruk: 0 };
         this.houseRegen = 0;
@@ -1068,9 +1069,10 @@ export default class GameScene extends Phaser.Scene {
                 this.chopTree(t); hitSomething = true;
             }
         });
-        // hit enemies
+        // hit enemies (the huge boss is hit anywhere along its body)
         this.enemies.forEach(e => {
-            if (Phaser.Math.Distance.Between(this.player.x, this.player.y, e.x, e.y) < R) {
+            const reach = e.isBoss ? e.bossReach : 0;
+            if (Phaser.Math.Distance.Between(this.player.x, this.player.y, e.x, e.y) < R + reach) {
                 this.hitEnemy(e); hitSomething = true;
             }
         });
@@ -1138,6 +1140,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     killEnemy(e) {
+        if (e.isBoss) { this.killBoss(e); return; }
         e.dead = true;
         this.stats.enemiesKilled++;
         this.hitStop(55);
@@ -1150,6 +1153,66 @@ export default class GameScene extends Phaser.Scene {
         this.tweens.add({ targets: e, scale: 0, alpha: 0, duration: 150, onComplete: () => e.destroy() });
         this.enemies = this.enemies.filter(x => x !== e);
         this.updateHUD();
+    }
+
+    // beating the final boss ends the run in victory
+    killBoss(e) {
+        e.dead = true;
+        this.stats.enemiesKilled++;
+        this.enemies = this.enemies.filter(x => x !== e);
+        if (e.hpBarBg) e.hpBarBg.destroy();
+        if (e.hpBar) e.hpBar.destroy();
+        if (e.hpLabel) e.hpLabel.destroy();
+        this.boss = null;
+        this.won = true; this.gameIsOver = true;
+        this.gameOverReason = 'Du beseiret sluttbossen på natt 50!';
+        if (this.spawnTimer) this.spawnTimer.remove();
+
+        // record run + character
+        const hi = Number(localStorage.getItem('emberwood_highscore') || 0);
+        if (this.score > hi) localStorage.setItem('emberwood_highscore', String(this.score));
+        this.finalBest = Math.max(hi, this.score);
+        const p = this.char; p.runs += 1; p.bestNight = Math.max(p.bestNight, this.wave);
+        this.toClaim = milestonesUnlocked(this.wave);
+        saveRoster(this.roster);
+
+        // triumphant death
+        this.sfx.fanfare();
+        this.cameras.main.shake(600, 0.018);
+        this.cameras.main.flash(500, 255, 240, 180);
+        this.burst(e.x, e.y, 'ember', 50);
+        this.tweens.add({ targets: e, scale: e.baseScale * 1.3, alpha: 0, angle: 60, duration: 900, ease: 'Cubic.in', onComplete: () => e.destroy() });
+        this.time.delayedCall(1100, () => this.victorySequence());
+    }
+
+    victorySequence() {
+        const c = this.add.container(0, 0).setDepth(4900);
+        c.add(this.add.rectangle(0, 0, W, H, 0x06140a, 0).setOrigin(0));
+        this.tweens.add({ targets: c.list[0], alpha: 0.8, duration: 600 });
+
+        const big = this.add.text(W / 2, H / 2 - 30, 'GRATULERER!', {
+            fontSize: '44px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffe066', stroke: '#000000', strokeThickness: 6
+        }).setOrigin(0.5).setScale(2).setAlpha(0);
+        c.add(big);
+        this.tweens.add({ targets: big, scale: 1, alpha: 1, duration: 500, ease: 'Back.out' });
+        this.tweens.add({ targets: big, scale: { from: 1, to: 1.06 }, duration: 700, yoyo: true, repeat: -1, delay: 500 });
+
+        const sub = this.add.text(W / 2, H / 2 + 26, 'Du beseiret sluttbossen på natt 50!', {
+            fontSize: '16px', fontFamily: 'Arial', color: '#cfe7d0'
+        }).setOrigin(0.5).setAlpha(0);
+        c.add(sub);
+        this.tweens.add({ targets: sub, alpha: 1, duration: 400, delay: 500 });
+
+        // celebratory bursts
+        for (let i = 0; i < 7; i++) {
+            this.time.delayedCall(i * 220, () => this.burst(Phaser.Math.Between(40, W - 40), Phaser.Math.Between(140, H - 200), 'ember', 8));
+        }
+
+        this.time.delayedCall(2700, () => {
+            c.destroy();
+            if (this.toClaim > 0) this.claimMilestone(1, this.toClaim);
+            else this.showGameOver(this.gameOverReason, true);
+        });
     }
 
     // disable + visibly recharge the feed button during its cooldown
@@ -1818,7 +1881,7 @@ export default class GameScene extends Phaser.Scene {
 
     destroyStructure(s) {
         s.dead = true;
-        if (s.type === 'gjerde') this.buildCounts.gjerde--;
+        this.buildCounts[s.type] = Math.max(0, (this.buildCounts[s.type] || 0) - 1);   // free up the slot to rebuild
         if (s.shadow) s.shadow.destroy();
         if (s.lvlBadge) s.lvlBadge.destroy();
         if (s.healRing) s.healRing.destroy();
@@ -1851,7 +1914,7 @@ export default class GameScene extends Phaser.Scene {
                 this.enemies.forEach(e => {
                     if (!e.dead && Phaser.Math.Distance.Between(s.x, s.y, e.x, e.y) < spec.range) {
                         this.hurtEnemy(e, spec.dmg);
-                        if (spec.slow) { e.slowUntil = this.time.now + spec.slowMs; e.slowFactor = spec.slow; e.slowIcy = false; }
+                        if (spec.slow && !e.isBoss) { e.slowUntil = this.time.now + spec.slowMs; e.slowFactor = spec.slow; e.slowIcy = false; }
                         hit = true;
                     }
                 });
@@ -1964,7 +2027,7 @@ export default class GameScene extends Phaser.Scene {
                     });
                 } else if (enemy.active && !enemy.dead) {
                     this.hurtEnemy(enemy, spec.dmg);
-                    if (spec.slow) {
+                    if (spec.slow && !enemy.isBoss) {
                         enemy.slowUntil = this.time.now + spec.slowMs;
                         enemy.slowFactor = spec.slow;
                         enemy.slowIcy = true;
@@ -1989,6 +2052,7 @@ export default class GameScene extends Phaser.Scene {
     startNight() {
         this.phase = 'night';
         const n = this.wave;
+        if (n === 50) { this.startBossNight(); return; }   // the final boss
         const dur = 16 + (n - 1) * 4;
         this.phaseEnd = this.time.now + dur * 1000;
         this.phaseDuration = dur;
@@ -2005,6 +2069,99 @@ export default class GameScene extends Phaser.Scene {
                 this.spawnEnemy(); this.nightSpawned++;
             }
         });
+    }
+
+    // night 50: a single, enormous final boss appears alone
+    startBossNight() {
+        this.phaseEnd = this.time.now + 99999 * 1000;   // no timer — ends when the boss dies
+        this.phaseDuration = 99999;
+        this.nightTotal = 1; this.nightSpawned = 0; this.nightEnding = false;
+        this.spawnTimer = null;
+        this.sfx.nightStart();
+        this.banner('☠  SLUTTBOSS — NATT 50', 0xff3b3b);
+        this.time.delayedCall(1100, () => { if (this.phase === 'night' && !this.gameIsOver) this.spawnBoss(); });
+    }
+
+    spawnBoss() {
+        const BOSS_HP = 13000;
+        const scale = (W * 0.55) / 64;                  // ~half the screen wide
+        const e = this.add.image(W / 2, PLAY_TOP + 20, 'behemoth').setDepth(PLAY_TOP + 20);
+        e.isBoss = true; e.etype = 'finalboss';
+        e.hp = e.maxHp = BOSS_HP;
+        e.speed = 16;                                   // very slow
+        e.dmg = 30;                                     // contact damage
+        e.baseScale = scale;
+        e.bossReach = (W * 0.55) / 2 * 0.72;            // body radius for smash/contact
+        e.knockResist = 0;                              // immune to knockback
+        e.dead = false; e.smashCd = 0; e.touchCd = 0; e.gnawCd = 0;
+        e.target = null; e.attackTime = 0; e.flap = 0;
+        e.bornUntil = this.time.now + 850;              // let the entrance tween finish first
+        e.setScale(0);
+        this.tweens.add({ targets: e, scale, duration: 800, ease: 'Back.out' });
+        this.cameras.main.shake(500, 0.012);
+        this.enemies.push(e);
+        this.boss = e;
+        this.nightSpawned = 1;
+
+        // boss health bar across the top of the play area
+        const barY = PLAY_TOP + 8, barW = W - 40;
+        e.hpBarBg = this.add.rectangle(20, barY, barW, 14, 0x3a0d14).setOrigin(0, 0.5).setDepth(2600).setScrollFactor(0);
+        e.hpBar = this.add.rectangle(20, barY, barW, 14, 0xff3b4d).setOrigin(0, 0.5).setDepth(2601).setScrollFactor(0);
+        e.hpLabel = this.add.text(W / 2, barY, '☠ SLUTTBOSS', {
+            fontSize: '12px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff', stroke: '#000', strokeThickness: 3
+        }).setOrigin(0.5).setDepth(2602).setScrollFactor(0);
+    }
+
+    updateBoss(dt, time) {
+        const e = this.boss;
+        if (!e || e.dead) return;
+        e.flap += dt;
+        if (time > e.bornUntil) e.setScale(e.baseScale * (1 + Math.sin(e.flap * 2) * 0.02));
+        e.setDepth(e.y);
+        e.hpBar.width = (W - 40) * Phaser.Math.Clamp(e.hp / e.maxHp, 0, 1);
+
+        if (e.target && !e.target.dead) {
+            // stopped, smashing the structure; destroyed after (its level) seconds
+            e.attackTime += dt;
+            if (time > e.smashCd) {
+                e.smashCd = time + 450;
+                this.burst(e.target.x, e.target.y, 'chip', 6);
+                this.cameras.main.shake(120, 0.005);
+                e.target.setTintFill(0xff8888);
+                const tgt = e.target;
+                this.time.delayedCall(80, () => { if (tgt && tgt.active && !tgt.dead) { tgt.clearTint(); if (tgt.type === 'gjerde') tgt.setAlpha(0.45 + 0.55 * Math.max(0, tgt.hp) / tgt.maxHp); else if (GameScene.SPEC[tgt.type]) this.refreshStructLevel(tgt); } });
+            }
+            if (e.attackTime >= (e.target.lvl || 1)) {
+                this.destroyStructure(e.target);
+                e.target = null; e.attackTime = 0;
+            }
+        } else {
+            e.target = null;
+            // grab the nearest structure inside its body, else advance on the fire
+            let near = null, nd = e.bossReach;
+            this.structures.forEach(s => {
+                if (s.dead) return;
+                const d = Phaser.Math.Distance.Between(e.x, e.y, s.x, s.y);
+                if (d < nd) { nd = d; near = s; }
+            });
+            if (near) { e.target = near; e.attackTime = 0; }
+            else if (Phaser.Math.Distance.Between(e.x, e.y, FIRE.x, FIRE.y) > e.bossReach * 0.6) {
+                const a = Phaser.Math.Angle.Between(e.x, e.y, FIRE.x, FIRE.y);
+                e.x += Math.cos(a) * e.speed * dt;
+                e.y += Math.sin(a) * e.speed * dt;
+            } else if (time > e.gnawCd) {
+                e.gnawCd = time + 600;
+                this.fuel = Math.max(0, this.fuel - 8);
+                this.burst(FIRE.x, FIRE.y, 'ember', 5);
+                if (this.fuel <= 0) { this.gameOver('Bålet slukna i mørket'); return; }
+            }
+        }
+
+        // contact damage to the player while inside the boss
+        if (Phaser.Math.Distance.Between(e.x, e.y, this.player.x, this.player.y) < e.bossReach && time > e.touchCd) {
+            e.touchCd = time + 700;
+            this.damagePlayer(e.dmg);
+        }
     }
 
     startDay() {
@@ -2147,6 +2304,7 @@ export default class GameScene extends Phaser.Scene {
         if (this.swingLocked || this.swingHeld || this.keys.SPACE.isDown) this.swing();
         this.updateEnemies(dt, time);
         this.updateEnemyShots(dt);
+        if (this.boss) this.updateBoss(dt, time);
         this.updateStructures(time);
 
         // huts heal the player only while standing within their radius (stacks)
@@ -2275,6 +2433,7 @@ export default class GameScene extends Phaser.Scene {
     updateEnemies(dt, time) {
         this.enemies.forEach(e => {
             if (e.dead) return;
+            if (e.isBoss) return;   // the boss runs its own update (updateBoss)
 
             // elite aura trails the enemy, gently pulsing
             if (e.aura) {
@@ -2559,20 +2718,20 @@ export default class GameScene extends Phaser.Scene {
                 this.sfx.upgrade();
                 c.destroy();
                 if (index < total) this.claimMilestone(index + 1, total);
-                else this.showGameOver(this.gameOverReason || 'Spillet er slutt');
+                else this.showGameOver(this.gameOverReason || 'Spillet er slutt', this.won);
             });
         });
     }
 
-    showGameOver(reason) {
+    showGameOver(reason, won = false) {
         const p = this.char;
         const c = this.add.container(0, 0).setDepth(5000);
         c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.8).setOrigin(0).setInteractive());
-        c.add(this.add.text(W / 2, 170, 'SLUTT', {
-            fontSize: '48px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ff5050'
+        c.add(this.add.text(W / 2, 170, won ? '🏆 GRATULERER' : 'SLUTT', {
+            fontSize: won ? '40px' : '48px', fontFamily: 'Arial', fontStyle: 'bold', color: won ? '#ffe066' : '#ff5050'
         }).setOrigin(0.5));
         c.add(this.add.text(W / 2, 218, reason, {
-            fontSize: '16px', fontFamily: 'Arial', color: '#cfe3d4'
+            fontSize: '16px', fontFamily: 'Arial', color: won ? '#cfe7d0' : '#cfe3d4'
         }).setOrigin(0.5));
         c.add(this.add.text(W / 2, 286,
             `Du nådde natt ${this.wave}\nPoeng: ${this.score}\nBeste: ${this.finalBest}`, {
