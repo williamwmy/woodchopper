@@ -541,7 +541,7 @@ export default class GameScene extends Phaser.Scene {
         this.playerShadow = this.addShadow(FIRE.x, FIRE.y + 88, 30, 0.6, 498);
         this.player = this.add.image(FIRE.x, FIRE.y + 70, 'player').setDepth(500);
         this.walkPhase = 0;
-        this._armorTier = -1;      // force the first avatar regen in refreshPowerVisuals
+        this._gearSig = '';        // force the first avatar regen in refreshPowerVisuals
         this.refreshPowerVisuals();
     }
 
@@ -575,11 +575,17 @@ export default class GameScene extends Phaser.Scene {
         // the lumberjack himself bulks up a little
         this.player.setScale(1 + Math.min(0.22, axe * 0.05));
 
-        // armor → re-skin the avatar with mightier gear when the tier changes
-        const at = this.armorTier(this.armor);
-        if (at !== this._armorTier) {
-            this._armorTier = at;
-            generateAvatarTexture(this, 'player', this.char, at);
+        // re-skin the avatar with mightier gear when any visible upgrade changes
+        const gear = {
+            armor: this.armorTier(this.armor),
+            axe: this.upgLevels.axe || 0,
+            vit: this.upgLevels.vit || 0,
+            boots: this.upgLevels.boots || 0
+        };
+        const sig = `${gear.armor}-${gear.axe}-${gear.vit}-${gear.boots}`;
+        if (sig !== this._gearSig) {
+            this._gearSig = sig;
+            generateAvatarTexture(this, 'player', this.char, gear);
             this.player.setTexture('player');
         }
 

@@ -124,7 +124,7 @@ function shade(c, f) {
 
 // Draw a character avatar to a texture key (used for the player sprite and
 // for previews/portraits in the GUI). Regenerates if the key already exists.
-export function generateAvatarTexture(scene, key, look, armorTier = 0) {
+export function generateAvatarTexture(scene, key, look, gear = {}) {
     if (scene.textures.exists(key)) scene.textures.remove(key);
     const g = scene.make.graphics({ x: 0, y: 0, add: false });
 
@@ -132,6 +132,11 @@ export function generateAvatarTexture(scene, key, look, armorTier = 0) {
     const hair = HAIRS[look.hair] ?? HAIRS[1];
     const shirt = SHIRTS[look.shirt] ?? SHIRTS[0];
     const female = look.gender === 1;
+    // upgrade tiers that re-skin the avatar (mightier with progress)
+    const armorTier = gear.armor || 0;
+    const axeLv = gear.axe || 0;
+    const vitLv = gear.vit || 0;
+    const bootLv = gear.boots || 0;
 
     // a mighty cape billows behind once well armoured (drawn first, peeks at edges)
     if (armorTier >= 3) {
@@ -142,6 +147,12 @@ export function generateAvatarTexture(scene, key, look, armorTier = 0) {
     // boots + pants
     g.fillStyle(0x2a1d12, 1); g.fillRect(11, 37, 6, 5); g.fillRect(19, 37, 6, 5);
     g.fillStyle(0x33405a, 1); g.fillRect(12, 30, 5, 8); g.fillRect(19, 30, 5, 8);
+    // sturdier boots with the boots upgrade
+    if (bootLv >= 1) {
+        g.fillStyle(0x3a2a16, 1); g.fillRect(11, 34, 6, 8); g.fillRect(19, 34, 6, 8);   // taller
+        g.fillStyle(0x8a929c, 1); g.fillRect(11, 40, 6, 2); g.fillRect(19, 40, 6, 2);   // metal toe
+        if (bootLv >= 3) { g.fillStyle(0xd8b54a, 1); g.fillRect(11, 34, 6, 1); g.fillRect(19, 34, 6, 1); }  // gold cuff
+    }
 
     // long hair behind the head (female)
     if (female) { g.fillStyle(shade(hair, 0.85), 1); g.fillRect(9, 6, 18, 20); }
@@ -152,6 +163,12 @@ export function generateAvatarTexture(scene, key, look, armorTier = 0) {
     // arm + hand
     g.fillStyle(shirt, 1); g.fillRect(24, 19, 5, 9);
     g.fillStyle(skin, 1); g.fillRect(24, 26, 5, 5);
+    // broad fur mantle across the shoulders with vitality upgrades
+    if (vitLv >= 1) {
+        const w = Math.min(4, vitLv);
+        g.fillStyle(0x5a4632, 1); g.fillRect(7 - w, 15, 22 + 2 * w, 4);
+        g.fillStyle(0x6e5740, 1); g.fillRect(7 - w, 15, 22 + 2 * w, 1);
+    }
 
     // head
     g.fillStyle(skin, 1); g.fillRect(12, 6, 12, 11);
@@ -193,10 +210,12 @@ export function generateAvatarTexture(scene, key, look, armorTier = 0) {
         g.fillStyle(0xffe9a0, 1); g.fillRect(12, 3, 12, 2);
     }
 
-    // axe
-    g.fillStyle(0x6b4423, 1); g.fillRect(28, 5, 3, 24);
-    g.fillStyle(0xcfd6dd, 1); g.fillRect(26, 3, 9, 8);
-    g.fillStyle(0x9aa3ad, 1); g.fillRect(26, 8, 9, 3);
+    // axe — head grows and glows hotter with axe upgrades
+    const headCol = [0xcfd6dd, 0xffe08a, 0xffae42, 0xff7a2b, 0xff5a2b][Math.min(axeLv, 4)];
+    const grow = Math.min(4, axeLv);
+    g.fillStyle(0x6b4423, 1); g.fillRect(28, 5, 3, 24);                       // handle
+    g.fillStyle(headCol, 1); g.fillRect(26 - grow, 3, 9 + grow, 8);           // head (wider)
+    g.fillStyle(shade(headCol, 0.78), 1); g.fillRect(26 - grow, 8, 9 + grow, 3);
 
     g.generateTexture(key, 36, 44);
     g.destroy();
