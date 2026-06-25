@@ -429,6 +429,101 @@ export default class GameScene extends Phaser.Scene {
         vctx.fillStyle = vgr;
         vctx.fillRect(0, 0, 256, 256);
         vg.refresh();
+
+        this.makeUpgradeIcons();
+    }
+
+    // custom 40×40 icons for the upgrade cards (replaces emoji), keyed 'upg_<key>'
+    makeUpgradeIcons() {
+        const g = this.add.graphics();
+        const tex = (key) => { g.generateTexture('upg_' + key, 40, 40); g.clear(); };
+
+        // axe — wooden handle + steel blade
+        g.fillStyle(0x6b4423, 1); g.fillRect(18, 7, 4, 27);
+        g.fillStyle(0xcfd6dd, 1); g.fillTriangle(22, 7, 35, 12, 22, 21);
+        g.fillStyle(0x9aa3ad, 1); g.fillTriangle(22, 15, 31, 15, 22, 21);
+        tex('axe');
+
+        // boots — a leather boot
+        g.fillStyle(0x5a3a1e, 1); g.fillRect(12, 8, 9, 20); g.fillRect(12, 24, 21, 8);
+        g.fillStyle(0x6e4a28, 1); g.fillRect(12, 8, 9, 4);
+        g.fillStyle(0x2a1d12, 1); g.fillRect(12, 30, 21, 3);
+        tex('boots');
+
+        // vit — heart
+        g.fillStyle(0xe23b53, 1); g.fillCircle(15, 16, 6); g.fillCircle(25, 16, 6); g.fillTriangle(9, 17, 31, 17, 20, 33);
+        g.fillStyle(0xff8094, 1); g.fillCircle(13, 14, 2);
+        tex('vit');
+
+        // fire — flame
+        g.fillStyle(0xd63a16, 1); g.fillTriangle(10, 33, 20, 6, 30, 33); g.fillEllipse(20, 31, 20, 12);
+        g.fillStyle(0xff8a2e, 1); g.fillTriangle(14, 33, 20, 14, 26, 33);
+        g.fillStyle(0xffd06a, 1); g.fillEllipse(20, 31, 8, 9);
+        tex('fire');
+
+        // reach — concentric rings
+        g.lineStyle(3, 0xffe08a, 1); g.strokeCircle(20, 20, 14); g.strokeCircle(20, 20, 8);
+        g.fillStyle(0xffe08a, 1); g.fillCircle(20, 20, 3);
+        tex('reach');
+
+        // swift — lightning bolt
+        g.fillStyle(0xffe066, 1); g.fillTriangle(23, 5, 10, 22, 20, 22); g.fillTriangle(17, 18, 30, 18, 17, 35);
+        tex('swift');
+
+        // lumber — a cut log
+        g.fillStyle(0x8a5a30, 1); g.fillRoundedRect(7, 14, 22, 12, 3);
+        g.fillStyle(0x6b4423, 1); g.fillRect(11, 16, 2, 8); g.fillRect(16, 16, 2, 8);
+        g.fillStyle(0xc89b6a, 1); g.fillCircle(29, 20, 6);
+        g.fillStyle(0x9c7038, 1); g.fillCircle(29, 20, 3);
+        tex('lumber');
+
+        // hunter — fang / blood drop
+        g.fillStyle(0xb01e2e, 1); g.fillCircle(20, 24, 8); g.fillTriangle(13, 23, 27, 23, 20, 6);
+        g.fillStyle(0xff6072, 1); g.fillCircle(17, 22, 2);
+        tex('hunter');
+
+        // ember (fuel mastery) — flame on a shield
+        g.fillStyle(0x6e767f, 1); g.fillRoundedRect(9, 7, 22, 18, 4); g.fillTriangle(9, 23, 31, 23, 20, 35);
+        g.fillStyle(0x8a929c, 1); g.fillRoundedRect(9, 7, 22, 4, 4);
+        g.fillStyle(0xff8a2e, 1); g.fillTriangle(15, 25, 20, 11, 25, 25);
+        tex('ember');
+
+        // regen — green cross
+        g.fillStyle(0x49c46a, 1); g.fillRect(17, 9, 6, 22); g.fillRect(9, 17, 22, 6);
+        g.fillStyle(0x7fe39a, 1); g.fillRect(17, 9, 6, 3);
+        tex('regen');
+
+        // crit — target reticle
+        g.lineStyle(3, 0xff5a5a, 1); g.strokeCircle(20, 20, 13); g.strokeCircle(20, 20, 7);
+        g.fillStyle(0xff5a5a, 1); g.fillCircle(20, 20, 3);
+        tex('crit');
+
+        // critdmg — burst star
+        g.fillStyle(0xffd166, 1);
+        g.fillTriangle(20, 4, 15, 20, 25, 20); g.fillTriangle(20, 36, 15, 20, 25, 20);
+        g.fillTriangle(4, 20, 20, 15, 20, 25); g.fillTriangle(36, 20, 20, 15, 20, 25);
+        g.fillStyle(0xff7a2b, 1); g.fillCircle(20, 20, 5);
+        tex('critdmg');
+
+        // knock — fist
+        g.fillStyle(0xe0a06a, 1); g.fillRoundedRect(11, 13, 17, 15, 4);
+        g.fillStyle(0xc8895a, 1); g.fillRect(11, 13, 17, 3); g.fillRect(15, 19, 13, 1);
+        g.fillStyle(0xe0a06a, 1); g.fillRect(26, 15, 6, 6);
+        tex('knock');
+
+        // armor (body) — chestplate
+        g.fillStyle(0x9aa3ad, 1); g.fillRoundedRect(11, 9, 18, 23, 4);
+        g.fillStyle(0xc2cad3, 1); g.fillRect(11, 9, 18, 4);
+        g.fillStyle(0x6e767f, 1); g.fillRect(19, 9, 2, 23); g.fillRect(11, 28, 18, 2);
+        tex('armor');
+
+        // helm (head) — helmet with nose guard
+        g.fillStyle(0x9aa3ad, 1); g.fillEllipse(20, 18, 24, 18); g.fillRect(8, 18, 24, 9);
+        g.fillStyle(0xc2cad3, 1); g.fillEllipse(20, 14, 18, 8);
+        g.fillStyle(0x33373c, 1); g.fillRect(19, 17, 2, 10);
+        tex('helm');
+
+        g.destroy();
     }
 
     // ---------------------------------------------------------------- entities
@@ -1256,7 +1351,7 @@ export default class GameScene extends Phaser.Scene {
             const cardC = this.add.container(W / 2, y).setScale(0.5).setAlpha(0);
             const rect = this.add.rectangle(0, 0, 320, 108, 0x1d2e18).setStrokeStyle(3, 0x4a6b3a);
             cardC.add(rect);
-            cardC.add(this.add.text(0, -28, it.icon, { fontSize: '38px' }).setOrigin(0.5));
+            cardC.add(this.add.image(0, -28, 'upg_' + it.key).setOrigin(0.5));
             cardC.add(this.add.text(0, 14, it.name, {
                 fontSize: '19px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
             }).setOrigin(0.5));
