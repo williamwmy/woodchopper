@@ -84,7 +84,7 @@ export default class GameScene extends Phaser.Scene {
         this.trees = [];
         this.enemies = [];
         this.structures = [];
-        this.buildCounts = { gjerde: 0, taarn: 0, iskanon: 0, bombekaster: 0, piggfelle: 0, hus: 0, sagbruk: 0 };
+        this.buildCounts = { gjerde: 0, taarn: 0, iskanon: 0, bombekaster: 0, lyntaarn: 0, piggfelle: 0, hus: 0, sagbruk: 0 };
         this.houseRegen = 0;
         this.spawnTimer = null;
         this.gameIsOver = false;
@@ -1450,7 +1450,7 @@ export default class GameScene extends Phaser.Scene {
         taarn:       { cd: 850,  range: 130, dmg: 12, tex: 'bolt' },
         iskanon:     { cd: 1100, range: 125, dmg: 5,  tex: 'icebolt', slow: 0.45, slowMs: 2500 },
         bombekaster: { cd: 1600, range: 165, dmg: 14, tex: 'shell', splash: 88, arc: true },
-        lyntaarn:    { cd: 1100, range: 205, dmg: 8,  chain: 3, chainR: 95 },
+        lyntaarn:    { cd: 1100, range: 172, dmg: 8,  chain: 3, chainR: 90 },
         piggfelle:   { cd: 700,  range: 40,  dmg: 8,  trap: true }
     };
 
