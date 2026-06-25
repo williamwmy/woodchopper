@@ -323,6 +323,13 @@ export default class GameScene extends Phaser.Scene {
         g.fillStyle(0xffe89a, 1); g.fillEllipse(20, 42, 8, 7);                                            // white-hot core
         g.generateTexture('flame', 40, 48); g.clear();
 
+        // firewood log (light base so it can be tinted darker→golden per fuel mastery)
+        g.fillStyle(0xc9a16a, 1); g.fillRoundedRect(0, 1, 26, 8, 3);                    // bark body
+        g.fillStyle(0xe0bd86, 1); g.fillRect(2, 2, 22, 2);                              // top highlight
+        g.fillStyle(0xefe0c0, 1); g.fillEllipse(25, 5, 6, 8);                           // cut end
+        g.fillStyle(0xc9a16a, 1); g.fillEllipse(25, 5, 3, 4);                           // rings
+        g.generateTexture('firelog', 30, 10); g.clear();
+
         // slash – a crescent blade trail (centred, opening to the right)
         g.fillStyle(0xffffff, 0.95);
         g.beginPath();
@@ -690,13 +697,31 @@ export default class GameScene extends Phaser.Scene {
 
     createFire() {
         this.add.ellipse(FIRE.x, FIRE.y + 14, 46, 16, 0x000000, 0.18).setDepth(1);
-        this.add.rectangle(FIRE.x - 8, FIRE.y + 8, 26, 7, 0x5b3a1d).setAngle(20).setDepth(2);
-        this.add.rectangle(FIRE.x + 8, FIRE.y + 8, 26, 7, 0x5b3a1d).setAngle(-20).setDepth(2);
+        // firewood pile under the flame — grows bigger & better with Bålmester
+        this.fireLogs = [];
+        this._emberLv = 0;
+        this.refreshFirewood(0);
         // green aura behind the flame when "healing fire" is chosen
         this.healGlow = this.add.image(FIRE.x, FIRE.y, 'glow').setBlendMode(Phaser.BlendModes.ADD)
             .setTint(0x4dff88).setDepth(2).setAlpha(0).setScale(1.6);
         this.flame = this.add.image(FIRE.x, FIRE.y + 4, 'flame').setOrigin(0.5, 0.82).setDepth(3);
         this.tweens.add({ targets: this.flame, scaleX: 1.12, scaleY: 0.92, duration: 380, yoyo: true, repeat: -1 });
+    }
+
+    // Bålmester (fuel mastery) → more, bigger, better-quality logs under the flame
+    refreshFirewood(lv) {
+        if (this.fireLogs) this.fireLogs.forEach(o => o.destroy());
+        this.fireLogs = [];
+        const count = Math.min(5, 2 + lv);
+        const sc = 1 + Math.min(0.7, lv * 0.14);
+        const tint = [0x6b4a2a, 0x7e5a2f, 0x946a32, 0xb07e38, 0xd6a456][Math.min(lv, 4)];   // darker → golden
+        const angs = [20, -20, 6, -12, 14];
+        for (let i = 0; i < count; i++) {
+            const off = (i - (count - 1) / 2) * 5;
+            const log = this.add.image(FIRE.x + off, FIRE.y + 9 + (i % 2) * 2 - 1, 'firelog')
+                .setAngle(angs[i % angs.length]).setScale(sc).setTint(tint).setDepth(2);
+            this.fireLogs.push(log);
+        }
     }
 
     treeSpots() {
@@ -818,6 +843,10 @@ export default class GameScene extends Phaser.Scene {
 
         // the lumberjack himself bulks up a little
         this.player.setScale(1 + Math.min(0.22, axe * 0.05));
+
+        // Bålmester → bigger/better firewood pile under the flame
+        const emberLv = this.upgLevels.ember || 0;
+        if (emberLv !== this._emberLv) { this._emberLv = emberLv; this.refreshFirewood(emberLv); }
 
         // bigger-fire upgrade → larger campfire; healing fire → green flame + aura
         this.fireSizeMult = 1 + Math.min(0.7, (this.upgLevels.fire || 0) * 0.12);
