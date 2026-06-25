@@ -27,8 +27,10 @@ const STR = {
         'phase.night': '🌙  NIGHT {n}\nSurvive until dawn!',
         'phase.cleared': '☀  NIGHT CLEARED!',
         'phase.survived': '☀  Survived night {n}!',
-        'boss.banner': '☠  FINAL BOSS — NIGHT 50',
-        'boss.label': '☠ FINAL BOSS',
+        'boss.banner': '☠  THE COLOSSUS\nNIGHT 50',
+        'boss.label': '☠ THE COLOSSUS',
+        'boss.phase2': '☠  THE COLOSSUS\nUNLEASHES ITS WRATH',
+        'boss.phase3': '☠  THE COLOSSUS\nRISES AGAIN',
 
         // --- float / status ---
         'fx.needWood': 'Out of wood!',
@@ -213,8 +215,10 @@ const STR = {
         'phase.night': '🌙  NATT {n}\nOverlev til daggry!',
         'phase.cleared': '☀  NATTA ER KLARERT!',
         'phase.survived': '☀  Natt {n} overlevd!',
-        'boss.banner': '☠  SLUTTBOSS — NATT 50',
-        'boss.label': '☠ SLUTTBOSS',
+        'boss.banner': '☠  KOLOSSEN\nNATT 50',
+        'boss.label': '☠ KOLOSSEN',
+        'boss.phase2': '☠  KOLOSSEN\nSLIPPER LØS SITT RASERI',
+        'boss.phase3': '☠  KOLOSSEN\nREISER SEG IGJEN',
 
         'fx.needWood': 'Mangler ved!',
         'fx.fireFull': 'Bålet er fullt',

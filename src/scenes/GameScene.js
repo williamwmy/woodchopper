@@ -15,7 +15,7 @@ let PLAY_BOTTOM = 610;     // ...and ends above controls (set in create)
 const FEED_COST = 5;
 const FEED_FUEL = 18;
 const FEED_CD = 280;       // ms between feeds (button recharges visibly)
-const FEED_RANGE = 115;    // must stand this close to the fire to feed it
+const FEED_RANGE = 150;    // must stand this close to the fire to feed it
 
 export default class GameScene extends Phaser.Scene {
     constructor() {
@@ -34,6 +34,26 @@ export default class GameScene extends Phaser.Scene {
 
         this.makeTextures();
         this.sfx = new SoundFX();
+
+        // Unlock audio inside a *real* user gesture. Phaser dispatches its own
+        // pointer events from the game loop (outside the gesture's call stack),
+        // so resuming the AudioContext from a Phaser handler makes Chrome log an
+        // autoplay warning. A native one-shot listener resumes it synchronously
+        // within the gesture instead, silencing the warning.
+        const unlockAudio = () => {
+            this.sfx.ensure();
+            window.removeEventListener('pointerdown', unlockAudio);
+            window.removeEventListener('keydown', unlockAudio);
+            window.removeEventListener('touchstart', unlockAudio);
+        };
+        window.addEventListener('pointerdown', unlockAudio);
+        window.addEventListener('keydown', unlockAudio);
+        window.addEventListener('touchstart', unlockAudio);
+        this.events.once('shutdown', () => {
+            window.removeEventListener('pointerdown', unlockAudio);
+            window.removeEventListener('keydown', unlockAudio);
+            window.removeEventListener('touchstart', unlockAudio);
+        });
 
         // ---- State ----
         this.wood = 12;
@@ -338,41 +358,58 @@ export default class GameScene extends Phaser.Scene {
         g.fillStyle(0xffd23b, 1); g.fillRect(24, 46, 3, 4); g.fillRect(30, 46, 3, 4); g.fillRect(37, 46, 3, 4); // teeth
         g.generateTexture('behemoth', 64, 64); g.clear();
 
-        // final boss — a colossal gold & silver titan with arms and legs (88×128)
-        const GOLD = 0xd9b13a, GOLDL = 0xf2dc82, GOLDD = 0x9a7a1e;
-        const SILV = 0xc8d0d8, SILVL = 0xeef2f6, SILVD = 0x8a929c;
-        // legs (silver) + golden boots
-        g.fillStyle(SILV, 1); g.fillRect(28, 86, 14, 34); g.fillRect(46, 86, 14, 34);
-        g.fillStyle(SILVD, 1); g.fillRect(28, 86, 5, 34); g.fillRect(46, 86, 5, 34);
-        g.fillStyle(GOLD, 1); g.fillRect(26, 114, 18, 10); g.fillRect(44, 114, 18, 10);
-        // arms (gold) hanging at the sides + silver fists
-        g.fillStyle(GOLD, 1); g.fillRect(8, 44, 13, 44); g.fillRect(67, 44, 13, 44);
-        g.fillStyle(GOLDD, 1); g.fillRect(8, 44, 4, 44); g.fillRect(67, 44, 4, 44);
-        g.fillStyle(SILV, 1); g.fillCircle(14, 90, 9); g.fillCircle(74, 90, 9);
-        // torso (silver plate with gold trim) + glowing core
-        g.fillStyle(SILV, 1); g.fillRoundedRect(20, 40, 48, 52, 8);
-        g.fillStyle(SILVL, 1); g.fillRoundedRect(20, 40, 48, 8, 8);
-        g.fillStyle(GOLD, 1); g.fillRect(20, 56, 48, 4); g.fillRect(42, 40, 4, 52);
-        g.fillStyle(0xff3b5b, 1); g.fillCircle(44, 66, 8); g.fillStyle(0xffd0dd, 1); g.fillCircle(44, 64, 3);
-        // grand pauldrons (gold orbs)
-        g.fillStyle(GOLD, 1); g.fillCircle(20, 44, 13); g.fillCircle(68, 44, 13);
-        g.fillStyle(GOLDL, 1); g.fillCircle(17, 41, 5); g.fillCircle(65, 41, 5);
-        // head (gold) with crown of horns + burning eyes
-        g.fillStyle(GOLDD, 1); g.fillTriangle(28, 16, 22, -6, 36, 16); g.fillTriangle(60, 16, 66, -6, 52, 16);
-        g.fillStyle(GOLD, 1); g.fillRoundedRect(32, 12, 24, 26, 6);
-        g.fillStyle(GOLDL, 1); g.fillRect(32, 12, 24, 4);
-        g.fillStyle(0xffe9a0, 1); g.fillTriangle(38, 4, 44, 12, 50, 4);   // crown spike
-        g.fillStyle(0xff5a1e, 1); g.fillCircle(39, 24, 4); g.fillCircle(49, 24, 4);   // eyes
-        g.fillStyle(0xffe0b0, 1); g.fillCircle(38, 23, 1.5); g.fillCircle(48, 23, 1.5);
-        g.fillStyle(0x6e1830, 1); g.fillRect(38, 32, 12, 3);             // grim mouth
+        // final boss — the Colossus: a colossal flayed-muscle humanoid, no armour (88×128)
+        const MUSD = 0x4a241c, MUS = 0x7a3a2c, MUSM = 0x9c503a, MUSL = 0xc07a5a, SIN = 0xc28a64;
+        g.fillStyle(0x000000, 0.22); g.fillEllipse(44, 123, 72, 12);                    // ground shadow
+        // legs — heavy muscular thighs
+        g.fillStyle(MUS, 1); g.fillRect(26, 98, 17, 30); g.fillRect(45, 98, 17, 30);
+        g.fillStyle(MUSM, 1); g.fillCircle(34, 106, 9); g.fillCircle(54, 106, 9);       // thigh bulge
+        g.fillStyle(MUSD, 1); g.fillRect(42, 98, 4, 30);                                // inner gap
+        g.fillStyle(MUSD, 1); g.fillRect(26, 98, 4, 30); g.fillRect(58, 98, 4, 30);     // outer shade
+        // arms — long, hanging, with huge biceps and forearms
+        g.fillStyle(MUS, 1); g.fillRect(4, 54, 18, 52); g.fillRect(66, 54, 18, 52);
+        g.fillStyle(MUSM, 1); g.fillCircle(13, 64, 10); g.fillCircle(75, 64, 10);       // biceps
+        g.fillStyle(MUSM, 1); g.fillCircle(13, 94, 9); g.fillCircle(75, 94, 9);         // forearms
+        g.fillStyle(MUSD, 1); g.fillRect(4, 54, 4, 52); g.fillRect(80, 54, 4, 52);      // outer shade
+        g.fillStyle(MUSL, 1); g.fillCircle(13, 62, 4); g.fillCircle(75, 62, 4);         // bicep highlight
+        g.lineStyle(1, MUSD, 0.45);                                                     // arm fibre striations
+        g.lineBetween(10, 72, 16, 88); g.lineBetween(72, 72, 78, 88);
+        // torso — broad muscular trunk
+        g.fillStyle(MUS, 1); g.fillRoundedRect(16, 48, 56, 58, 12);
+        g.fillStyle(MUSD, 1); g.fillRect(43, 60, 2, 46);                                // central seam
+        // pectorals
+        g.fillStyle(MUSM, 1); g.fillCircle(32, 64, 14); g.fillCircle(56, 64, 14);
+        g.fillStyle(MUSL, 1); g.fillCircle(30, 59, 6); g.fillCircle(54, 59, 6);         // pec highlights
+        g.fillStyle(MUSD, 1); g.fillEllipse(44, 55, 30, 4);                             // collar shadow
+        // abdominals — stacked muscle blocks
+        g.fillStyle(MUSM, 1);
+        g.fillRect(34, 80, 8, 7); g.fillRect(46, 80, 8, 7);
+        g.fillRect(34, 89, 8, 7); g.fillRect(46, 89, 8, 7);
+        g.fillRect(35, 98, 7, 6); g.fillRect(46, 98, 7, 6);
+        // the Y-shaped sternum sinew from the reference
+        g.lineStyle(2.5, SIN, 0.9);
+        g.lineBetween(28, 52, 44, 76); g.lineBetween(60, 52, 44, 76); g.lineBetween(44, 76, 44, 100);
+        // deltoids — cap the shoulder joints
+        g.fillStyle(MUSM, 1); g.fillCircle(20, 52, 12); g.fillCircle(68, 52, 12);
+        g.fillStyle(MUSL, 1); g.fillCircle(18, 48, 4); g.fillCircle(66, 48, 4);
+        // thick neck + traps
+        g.fillStyle(MUS, 1); g.fillRect(35, 38, 18, 14);
+        g.fillStyle(MUSD, 1); g.fillRect(33, 46, 6, 6); g.fillRect(49, 46, 6, 6);
+        // head — gaunt skull-like face
+        g.fillStyle(MUS, 1); g.fillRoundedRect(31, 6, 26, 32, 7);
+        g.fillStyle(MUSM, 1); g.fillRect(31, 6, 26, 6);                                 // forehead highlight
+        g.fillStyle(MUSD, 1); g.fillRect(31, 24, 5, 11); g.fillRect(52, 24, 5, 11);     // hollow cheeks
+        g.fillStyle(MUSD, 1); g.fillRect(33, 18, 22, 3);                                // heavy brow
+        // burning red eyes, deep set with glow
+        g.fillStyle(0xff2a14, 0.35); g.fillCircle(39, 23, 8); g.fillCircle(49, 23, 8);  // glow
+        g.fillStyle(0xff3a1e, 1); g.fillCircle(39, 23, 4.5); g.fillCircle(49, 23, 4.5);
+        g.fillStyle(0xffe2b0, 1); g.fillCircle(38, 22, 1.8); g.fillCircle(48, 22, 1.8);
+        // wide gritted grin with bared teeth
+        g.fillStyle(0x250b06, 1); g.fillRoundedRect(34, 30, 20, 7, 2);
+        g.fillStyle(0xddc8aa, 1);
+        g.fillRect(36, 30, 2, 7); g.fillRect(39, 30, 2, 7); g.fillRect(42, 30, 2, 7);
+        g.fillRect(45, 30, 2, 7); g.fillRect(48, 30, 2, 7); g.fillRect(51, 30, 2, 7);
         g.generateTexture('finalboss', 88, 128); g.clear();
-
-        // tornado hazard — a grey funnel
-        g.fillStyle(0xb8c0c8, 0.5); g.fillTriangle(4, 4, 28, 4, 16, 52);
-        g.fillStyle(0xd6dde2, 0.7); g.fillTriangle(7, 6, 25, 6, 16, 46);
-        g.fillStyle(0xeef2f6, 0.9); g.fillTriangle(11, 8, 21, 8, 16, 38);
-        g.fillStyle(0x9aa3ad, 0.6); g.fillRect(4, 6, 24, 2); g.fillRect(7, 16, 18, 2); g.fillRect(10, 28, 12, 2);
-        g.generateTexture('tornado', 32, 56); g.clear();
 
         // boss missile — a fiery shell
         g.fillStyle(0xffb347, 0.4); g.fillCircle(8, 8, 8);
@@ -1378,17 +1415,24 @@ export default class GameScene extends Phaser.Scene {
         this.sfx.hitEnemy();
         e.setTintFill(crit ? 0xffe66a : 0xffffff);
         this.time.delayedCall(70, () => { if (e.active) e.clearTint(); });
-        // knockback away from player — crits hit harder, heavy enemies resist
-        const a = Phaser.Math.Angle.Between(this.player.x, this.player.y, e.x, e.y);
-        const kb = this.knockback * (e.knockResist || 1) * (crit ? 1.6 : 1);
-        e.x = Phaser.Math.Clamp(e.x + Math.cos(a) * kb, 10, W - 10);
-        e.y = Phaser.Math.Clamp(e.y + Math.sin(a) * kb, PLAY_TOP, PLAY_BOTTOM);
-        e.setDepth(e.y);
+        // knockback away from player — crits hit harder, heavy enemies resist.
+        // the boss is immovable (knockResist 0 — note `?? 1`, since `0 || 1` would
+        // wrongly give it full knockback).
+        if (!e.isBoss) {
+            const a = Phaser.Math.Angle.Between(this.player.x, this.player.y, e.x, e.y);
+            const kb = this.knockback * (e.knockResist ?? 1) * (crit ? 1.6 : 1);
+            e.x = Phaser.Math.Clamp(e.x + Math.cos(a) * kb, 10, W - 10);
+            e.y = Phaser.Math.Clamp(e.y + Math.sin(a) * kb, PLAY_TOP, PLAY_BOTTOM);
+            e.setDepth(e.y);
+        }
         if (e.hp <= 0) this.killEnemy(e);
     }
 
     killEnemy(e) {
-        if (e.isBoss) { this.killBoss(e); return; }
+        if (e.isBoss) {
+            if (!e.revived) { this.bossRevive(e); return; }   // phase 3: rises again at 20% HP
+            this.killBoss(e); return;
+        }
         e.dead = true;
         this.stats.enemiesKilled++;
         this.hitStop(55);
@@ -2441,6 +2485,8 @@ export default class GameScene extends Phaser.Scene {
         e.knockResist = 0;                              // immune to knockback
         e.dead = false; e.smashCd = 0; e.touchCd = 0; e.gnawCd = 0;
         e.target = null; e.attackTime = 0; e.flap = 0;
+        // three phases: 1 melee-only · 2 (≤50% HP) adds missiles · 3 (revived at 20% HP) adds lightning + faster fire
+        e.phase = 1; e.revived = false; e.missileCd = 0; e.lightCd = 0;
         this.tornadoes = [];
         this._bossAtkUntil = this.time.now;             // set below to when the entrance ends
         // dramatic entrance: rises from below + thunderous steps before it acts
@@ -2475,13 +2521,35 @@ export default class GameScene extends Phaser.Scene {
             fontSize: '12px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff', stroke: '#000', strokeThickness: 3
         }).setOrigin(0.5).setDepth(2602).setScrollFactor(0);
 
-        // repeating ranged attacks — only after the entrance and while it lives
-        const armed = () => !e.dead && this.boss === e && this.time.now > e.entranceUntil && !this.gameIsOver;
-        this.bossTimers = [
-            this.time.addEvent({ delay: 2600, loop: true, callback: () => { if (armed()) this.bossMissiles(e); } }),
-            this.time.addEvent({ delay: 5200, loop: true, callback: () => { if (armed()) this.bossLightning(e); } }),
-            this.time.addEvent({ delay: 8000, loop: true, callback: () => { if (armed()) this.bossTornado(e); } })
-        ];
+        // ranged attacks are driven by phase from updateBoss (no fixed timers).
+        // start disarmed: phase 1 is pure melee until it drops below 50% HP.
+        this.bossTimers = [];
+        e.missileCd = e.entranceUntil; e.lightCd = e.entranceUntil;
+    }
+
+    // phase 2 (≤50% HP): the Colossus loses its first health bar and starts hurling missiles
+    bossEnterPhase2(e, time) {
+        e.phase = 2;
+        e.missileCd = time + 500;
+        this.banner(t('boss.phase2'), 0xff7a1e);
+        this.sfx.bossTheme();
+        this.cameras.main.shake(360, 0.012);
+        this.cameras.main.flash(280, 255, 140, 40);
+        this.burst(e.x, e.y, 'ember', 22);
+    }
+
+    // phase 3: felled once, it rises again at 20% HP — enraged, firing missiles + lightning faster
+    bossRevive(e) {
+        e.revived = true; e.phase = 3;
+        e.hp = Math.round(e.maxHp * 0.2);
+        e.missileCd = this.time.now + 600; e.lightCd = this.time.now + 1300;
+        e.setTint(0xff9977);                              // enraged red glow
+        if (e.hpBar) e.hpBar.setFillStyle(0xff7a1e);
+        this.banner(t('boss.phase3'), 0xff3b3b);
+        this.sfx.bossTheme(); this.sfx.bossStep();
+        this.cameras.main.shake(700, 0.02);
+        this.cameras.main.flash(450, 255, 90, 40);
+        this.burst(e.x, e.y, 'ember', 40);
     }
 
     // boss attack: a volley of fiery missiles lobbed at the player
@@ -2519,33 +2587,6 @@ export default class GameScene extends Phaser.Scene {
         });
     }
 
-    // boss attack: a tornado that sweeps across the field, hurting the player
-    bossTornado(e) {
-        const fromLeft = Math.random() < 0.5;
-        const tor = this.add.image(fromLeft ? -20 : W + 20, Phaser.Math.Between(PLAY_TOP + 40, PLAY_BOTTOM - 40), 'tornado')
-            .setScale(1.7).setAlpha(0.92);
-        tor.vx = (fromLeft ? 1 : -1) * Phaser.Math.Between(55, 80);
-        tor.life = 6.5; tor.dmgCd = 0;
-        this.tornadoes.push(tor);
-        this.sfx.nightStart();
-    }
-
-    updateTornadoes(dt, time) {
-        if (!this.tornadoes) return;
-        for (let i = this.tornadoes.length - 1; i >= 0; i--) {
-            const tr = this.tornadoes[i];
-            tr.x += tr.vx * dt;
-            tr.y += Math.sin(time / 280 + i) * 0.5;
-            tr.rotation += dt * 14;
-            tr.setDepth(tr.y);
-            tr.life -= dt;
-            if (Phaser.Math.Distance.Between(tr.x, tr.y, this.player.x, this.player.y) < 32 && time > tr.dmgCd) {
-                tr.dmgCd = time + 500; this.damagePlayer(16);
-            }
-            if (tr.life <= 0 || tr.x < -44 || tr.x > W + 44) { tr.destroy(); this.tornadoes.splice(i, 1); }
-        }
-    }
-
     updateBoss(dt, time) {
         const e = this.boss;
         if (!e || e.dead) return;
@@ -2555,6 +2596,17 @@ export default class GameScene extends Phaser.Scene {
         // during the rising/stomping entrance it doesn't move, smash or hit yet
         if (time < e.entranceUntil) return;
         if (time > e.bornUntil) e.setScale(e.baseScale * (1 + Math.sin(e.flap * 2) * 0.02));
+
+        // phase escalation + ranged attacks
+        if (e.phase === 1 && e.hp <= e.maxHp * 0.5) this.bossEnterPhase2(e, time);
+        if (e.phase >= 2 && time > e.missileCd) {
+            e.missileCd = time + (e.phase >= 3 ? 1400 : 2600);   // phase 3 fires far more often
+            this.bossMissiles(e);
+        }
+        if (e.phase >= 3 && time > e.lightCd) {
+            e.lightCd = time + 3400;
+            this.bossLightning(e);
+        }
 
         if (e.target && !e.target.dead) {
             // stopped, smashing the structure; destroyed after (its level) seconds
@@ -2748,7 +2800,6 @@ export default class GameScene extends Phaser.Scene {
         this.updateEnemies(dt, time);
         this.updateEnemyShots(dt);
         if (this.boss) this.updateBoss(dt, time);
-        this.updateTornadoes(dt, time);
         this.updateStructures(time);
 
         // healing fire: regenerate HP while standing in the fire's warm glow,
