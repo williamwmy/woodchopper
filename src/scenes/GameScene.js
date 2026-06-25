@@ -539,15 +539,33 @@ export default class GameScene extends Phaser.Scene {
         g.fillStyle(0xffd770, 1); g.fillEllipse(16, 29, 6, 6);
         tex('btn_fire', 32, 34);
 
-        // shop — a claw hammer (build). Asymmetric head + offset handle so it
-        // doesn't read like a mailbox
-        g.fillStyle(0x7a5230, 1); g.fillRect(13, 13, 4, 17);             // handle (left of centre)
-        g.fillStyle(0x5c3c20, 1); g.fillRect(13, 13, 1.5, 17);
-        g.fillStyle(0xaab4be, 1); g.fillRoundedRect(9, 6, 18, 8, 3);     // head bar
-        g.fillStyle(0xc8d0d8, 1); g.fillRect(9, 6, 18, 2);              // shine
-        g.fillStyle(0x8a929c, 1); g.fillRect(23, 4, 5, 12);             // heavy striking face (right)
-        g.fillStyle(0x9aa3ad, 1); g.fillTriangle(9, 6, 9, 14, 3, 12);   // curved claw (left)
-        g.fillStyle(0x05140a, 1); g.fillTriangle(7, 8, 9, 9, 9, 13);    // claw split/notch
+        // shop — a stone watchtower with a green build "+" badge. Reads instantly
+        // as "build a tower" (was a hammer that looked like a mailbox)
+        {
+            const stone = 0xb9a273, lite = 0xd8c89a, dark = 0x8a7448, line = 0x4a3d24;
+            g.fillStyle(line, 1); g.fillRect(5, 26, 22, 4);                 // base ledge
+            g.fillStyle(stone, 1); g.fillRect(6, 26, 20, 3);
+            g.fillStyle(lite, 1); g.fillRect(6, 26, 20, 1);
+            g.fillStyle(line, 1); g.fillRect(8, 10, 16, 17);               // body outline
+            g.fillStyle(stone, 1); g.fillRect(9, 11, 14, 15);
+            g.fillStyle(lite, 1); g.fillRect(9, 11, 3, 15);                // lit left edge
+            g.fillStyle(dark, 1); g.fillRect(20, 11, 3, 15);              // shaded right edge
+            g.fillStyle(line, 1); g.fillRect(9, 16, 14, 1); g.fillRect(9, 21, 14, 1);   // mortar lines
+            // crenellated top (three merlons with gaps)
+            [8, 14, 20].forEach((mx, i) => {
+                const mw = i === 2 ? 4 : 4;
+                g.fillStyle(line, 1); g.fillRect(mx, 5, mw, 6);
+                g.fillStyle(stone, 1); g.fillRect(mx + 1, 6, mw - 1, 5);
+                g.fillStyle(lite, 1); g.fillRect(mx + 1, 6, 1, 5);
+            });
+            // arched window slit
+            g.fillStyle(line, 1); g.fillRect(13, 15, 6, 8); g.fillCircle(16, 15, 3);
+            g.fillStyle(0x1a1208, 1); g.fillRect(14, 16, 4, 7); g.fillCircle(16, 16, 2);
+            // build "+" badge, top-right
+            g.fillStyle(0x123019, 1); g.fillCircle(25, 7, 5.6);
+            g.fillStyle(0x49c46a, 1); g.fillCircle(25, 7, 4.3);
+            g.fillStyle(0xffffff, 1); g.fillRect(24.1, 4.6, 1.8, 4.8); g.fillRect(22.6, 6.1, 4.8, 1.8);
+        }
         tex('btn_shop', 32, 32);
 
         // padlock — closed
