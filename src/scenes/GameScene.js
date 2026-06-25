@@ -436,91 +436,137 @@ export default class GameScene extends Phaser.Scene {
     // custom 40×40 icons for the upgrade cards (replaces emoji), keyed 'upg_<key>'
     makeUpgradeIcons() {
         const g = this.add.graphics();
+        const disc = () => {                 // unifying dark badge behind each symbol
+            g.fillStyle(0x0f2016, 0.6); g.fillCircle(20, 20, 18);
+            g.lineStyle(2, 0x35563f, 0.85); g.strokeCircle(20, 20, 18);
+        };
         const tex = (key) => { g.generateTexture('upg_' + key, 40, 40); g.clear(); };
 
-        // axe — wooden handle + steel blade
-        g.fillStyle(0x6b4423, 1); g.fillRect(18, 7, 4, 27);
-        g.fillStyle(0xcfd6dd, 1); g.fillTriangle(22, 7, 35, 12, 22, 21);
-        g.fillStyle(0x9aa3ad, 1); g.fillTriangle(22, 15, 31, 15, 22, 21);
+        // axe — angled steel bit on a wooden haft
+        disc();
+        g.fillStyle(0x7a5230, 1); g.fillRect(18, 7, 4, 27);
+        g.fillStyle(0x5c3c20, 1); g.fillRect(18, 7, 1.5, 27);
+        g.fillStyle(0xd7dde3, 1); g.fillPoints([{ x: 21, y: 8 }, { x: 34, y: 11 }, { x: 33, y: 19 }, { x: 21, y: 21 }], true);
+        g.fillStyle(0xeef2f6, 1); g.fillTriangle(22, 9, 31, 11, 22, 14);
+        g.fillStyle(0xb6bcc4, 1); g.fillRect(14, 10, 4, 5);
         tex('axe');
 
-        // boots — a leather boot
-        g.fillStyle(0x5a3a1e, 1); g.fillRect(12, 8, 9, 20); g.fillRect(12, 24, 21, 8);
-        g.fillStyle(0x6e4a28, 1); g.fillRect(12, 8, 9, 4);
-        g.fillStyle(0x2a1d12, 1); g.fillRect(12, 30, 21, 3);
+        // boots — a side-view boot
+        disc();
+        g.fillStyle(0x6b4326, 1); g.fillRect(14, 8, 9, 17); g.fillRect(14, 22, 18, 8);
+        g.fillStyle(0x8a5a30, 1); g.fillRect(14, 8, 9, 3);
+        g.fillStyle(0x3a2414, 1); g.fillRect(14, 29, 18, 3);
+        g.fillStyle(0x4a2d18, 1); g.fillCircle(18, 13, 1); g.fillCircle(18, 17, 1);
         tex('boots');
 
         // vit — heart
-        g.fillStyle(0xe23b53, 1); g.fillCircle(15, 16, 6); g.fillCircle(25, 16, 6); g.fillTriangle(9, 17, 31, 17, 20, 33);
-        g.fillStyle(0xff8094, 1); g.fillCircle(13, 14, 2);
+        disc();
+        g.fillStyle(0xe23b53, 1);
+        g.fillCircle(14, 16, 6.5); g.fillCircle(26, 16, 6.5);
+        g.fillTriangle(7.5, 17, 32.5, 17, 20, 33);
+        g.fillStyle(0xff7088, 1); g.fillCircle(13, 13, 2.5);
         tex('vit');
 
         // fire — flame
-        g.fillStyle(0xd63a16, 1); g.fillTriangle(10, 33, 20, 6, 30, 33); g.fillEllipse(20, 31, 20, 12);
-        g.fillStyle(0xff8a2e, 1); g.fillTriangle(14, 33, 20, 14, 26, 33);
-        g.fillStyle(0xffd06a, 1); g.fillEllipse(20, 31, 8, 9);
+        disc();
+        g.fillStyle(0xd63a16, 1); g.fillTriangle(11, 32, 20, 6, 29, 32); g.fillEllipse(20, 30, 18, 12);
+        g.fillStyle(0xff8a2e, 1); g.fillTriangle(15, 32, 20, 14, 25, 32); g.fillEllipse(20, 31, 11, 8);
+        g.fillStyle(0xffd770, 1); g.fillEllipse(20, 31, 6, 6);
         tex('fire');
 
-        // reach — concentric rings
-        g.lineStyle(3, 0xffe08a, 1); g.strokeCircle(20, 20, 14); g.strokeCircle(20, 20, 8);
+        // reach — radar rings with outward arrows
+        disc();
+        g.lineStyle(2.5, 0xffe08a, 1); g.strokeCircle(20, 20, 13); g.strokeCircle(20, 20, 7.5);
         g.fillStyle(0xffe08a, 1); g.fillCircle(20, 20, 3);
+        g.fillTriangle(33, 20, 28, 17, 28, 23); g.fillTriangle(7, 20, 12, 17, 12, 23);
         tex('reach');
 
         // swift — lightning bolt
-        g.fillStyle(0xffe066, 1); g.fillTriangle(23, 5, 10, 22, 20, 22); g.fillTriangle(17, 18, 30, 18, 17, 35);
+        disc();
+        g.fillStyle(0xffe066, 1);
+        g.fillPoints([{ x: 22, y: 5 }, { x: 12, y: 22 }, { x: 19, y: 22 }, { x: 16, y: 35 }, { x: 30, y: 16 }, { x: 22, y: 16 }], true);
+        g.fillStyle(0xfff4b0, 1); g.fillTriangle(21, 7, 15, 20, 20, 19);
         tex('swift');
 
-        // lumber — a cut log
-        g.fillStyle(0x8a5a30, 1); g.fillRoundedRect(7, 14, 22, 12, 3);
-        g.fillStyle(0x6b4423, 1); g.fillRect(11, 16, 2, 8); g.fillRect(16, 16, 2, 8);
-        g.fillStyle(0xc89b6a, 1); g.fillCircle(29, 20, 6);
-        g.fillStyle(0x9c7038, 1); g.fillCircle(29, 20, 3);
+        // lumber — a cut log with end-grain rings
+        disc();
+        g.fillStyle(0x8a5a30, 1); g.fillRoundedRect(6, 14, 22, 13, 5);
+        g.fillStyle(0x6b4423, 1); g.fillRect(12, 16, 1.5, 9); g.fillRect(17, 16, 1.5, 9);
+        g.fillStyle(0xc89b6a, 1); g.fillEllipse(28, 20, 9, 13);
+        g.fillStyle(0xa97c45, 1); g.fillEllipse(28, 20, 5, 8);
+        g.fillStyle(0x8a5a30, 1); g.fillEllipse(28, 20, 2, 3);
         tex('lumber');
 
-        // hunter — fang / blood drop
-        g.fillStyle(0xb01e2e, 1); g.fillCircle(20, 24, 8); g.fillTriangle(13, 23, 27, 23, 20, 6);
-        g.fillStyle(0xff6072, 1); g.fillCircle(17, 22, 2);
+        // hunter — three predator claw slashes
+        disc();
+        g.fillStyle(0xc8283a, 1);
+        g.fillTriangle(11, 8, 15, 9, 13, 31);
+        g.fillTriangle(18, 6, 22, 7, 20, 33);
+        g.fillTriangle(25, 8, 29, 9, 27, 31);
+        g.fillStyle(0xff6072, 1);
+        g.fillTriangle(12, 10, 14, 10, 13, 22); g.fillTriangle(19, 8, 21, 8, 20, 22); g.fillTriangle(26, 10, 28, 10, 27, 22);
         tex('hunter');
 
         // ember (fuel mastery) — flame on a shield
-        g.fillStyle(0x6e767f, 1); g.fillRoundedRect(9, 7, 22, 18, 4); g.fillTriangle(9, 23, 31, 23, 20, 35);
-        g.fillStyle(0x8a929c, 1); g.fillRoundedRect(9, 7, 22, 4, 4);
-        g.fillStyle(0xff8a2e, 1); g.fillTriangle(15, 25, 20, 11, 25, 25);
+        disc();
+        g.fillStyle(0x6e767f, 1);
+        g.fillPoints([{ x: 20, y: 6 }, { x: 31, y: 11 }, { x: 29, y: 25 }, { x: 20, y: 33 }, { x: 11, y: 25 }, { x: 9, y: 11 }], true);
+        g.fillStyle(0x8a929c, 1); g.fillPoints([{ x: 20, y: 6 }, { x: 31, y: 11 }, { x: 20, y: 13 }, { x: 9, y: 11 }], true);
+        g.fillStyle(0xff8a2e, 1); g.fillTriangle(15, 26, 20, 13, 25, 26); g.fillEllipse(20, 25, 9, 6);
+        g.fillStyle(0xffd770, 1); g.fillEllipse(20, 25, 4, 4);
         tex('ember');
 
-        // regen — green cross
-        g.fillStyle(0x49c46a, 1); g.fillRect(17, 9, 6, 22); g.fillRect(9, 17, 22, 6);
-        g.fillStyle(0x7fe39a, 1); g.fillRect(17, 9, 6, 3);
+        // regen (healing fire) — a green flame with a white cross in its core
+        disc();
+        g.fillStyle(0x1f8f49, 1); g.fillTriangle(11, 32, 20, 6, 29, 32); g.fillEllipse(20, 30, 18, 12);
+        g.fillStyle(0x49c46a, 1); g.fillTriangle(15, 32, 20, 14, 25, 32); g.fillEllipse(20, 31, 11, 8);
+        g.fillStyle(0xbfffd0, 1); g.fillEllipse(20, 30, 7, 7);
+        g.fillStyle(0xffffff, 1); g.fillRect(18, 26, 4, 9); g.fillRect(15.5, 29, 9, 4);
         tex('regen');
 
-        // crit — target reticle
-        g.lineStyle(3, 0xff5a5a, 1); g.strokeCircle(20, 20, 13); g.strokeCircle(20, 20, 7);
-        g.fillStyle(0xff5a5a, 1); g.fillCircle(20, 20, 3);
+        // crit — precise target reticle
+        disc();
+        g.lineStyle(2.5, 0xff5a5a, 1); g.strokeCircle(20, 20, 12);
+        g.beginPath();
+        g.moveTo(20, 3); g.lineTo(20, 11); g.moveTo(20, 29); g.lineTo(20, 37);
+        g.moveTo(3, 20); g.lineTo(11, 20); g.moveTo(29, 20); g.lineTo(37, 20);
+        g.strokePath();
+        g.fillStyle(0xff5a5a, 1); g.fillCircle(20, 20, 3.5);
         tex('crit');
 
-        // critdmg — burst star
-        g.fillStyle(0xffd166, 1);
-        g.fillTriangle(20, 4, 15, 20, 25, 20); g.fillTriangle(20, 36, 15, 20, 25, 20);
-        g.fillTriangle(4, 20, 20, 15, 20, 25); g.fillTriangle(36, 20, 20, 15, 20, 25);
-        g.fillStyle(0xff7a2b, 1); g.fillCircle(20, 20, 5);
+        // critdmg — explosive starburst
+        disc();
+        const star = [];
+        for (let i = 0; i < 16; i++) {
+            const ang = (Math.PI * 2 * i) / 16 - Math.PI / 2, r = i % 2 ? 6 : 16;
+            star.push({ x: 20 + Math.cos(ang) * r, y: 20 + Math.sin(ang) * r });
+        }
+        g.fillStyle(0xff7a2b, 1); g.fillPoints(star, true);
+        g.fillStyle(0xffd166, 1); g.fillCircle(20, 20, 5.5);
+        g.fillStyle(0xfff0c0, 1); g.fillCircle(18, 18, 2);
         tex('critdmg');
 
-        // knock — fist
-        g.fillStyle(0xe0a06a, 1); g.fillRoundedRect(11, 13, 17, 15, 4);
-        g.fillStyle(0xc8895a, 1); g.fillRect(11, 13, 17, 3); g.fillRect(15, 19, 13, 1);
-        g.fillStyle(0xe0a06a, 1); g.fillRect(26, 15, 6, 6);
+        // knock — a fist with motion lines
+        disc();
+        g.fillStyle(0xffffff, 0.45); g.fillRect(5, 14, 5, 2); g.fillRect(4, 20, 6, 2); g.fillRect(5, 26, 5, 2);
+        g.fillStyle(0xe0a06a, 1); g.fillRoundedRect(12, 13, 16, 15, 4);
+        g.fillStyle(0xe0a06a, 1); g.fillRoundedRect(25, 17, 7, 7, 2);
+        g.fillStyle(0xc8895a, 1); g.fillRect(16, 13, 1.5, 7); g.fillRect(20, 13, 1.5, 7); g.fillRect(24, 13, 1.5, 7);
         tex('knock');
 
-        // armor (body) — chestplate
-        g.fillStyle(0x9aa3ad, 1); g.fillRoundedRect(11, 9, 18, 23, 4);
-        g.fillStyle(0xc2cad3, 1); g.fillRect(11, 9, 18, 4);
-        g.fillStyle(0x6e767f, 1); g.fillRect(19, 9, 2, 23); g.fillRect(11, 28, 18, 2);
+        // armor (body) — a cuirass
+        disc();
+        g.fillStyle(0xaab4be, 1);
+        g.fillPoints([{ x: 11, y: 10 }, { x: 29, y: 10 }, { x: 31, y: 14 }, { x: 27, y: 32 }, { x: 13, y: 32 }, { x: 9, y: 14 }], true);
+        g.fillStyle(0xc8d0d8, 1); g.fillPoints([{ x: 11, y: 10 }, { x: 29, y: 10 }, { x: 30, y: 13 }, { x: 10, y: 13 }], true);
+        g.fillStyle(0x7e878f, 1); g.fillRect(19, 13, 2, 19); g.fillRect(13, 22, 14, 1.5);
         tex('armor');
 
-        // helm (head) — helmet with nose guard
-        g.fillStyle(0x9aa3ad, 1); g.fillEllipse(20, 18, 24, 18); g.fillRect(8, 18, 24, 9);
-        g.fillStyle(0xc2cad3, 1); g.fillEllipse(20, 14, 18, 8);
-        g.fillStyle(0x33373c, 1); g.fillRect(19, 17, 2, 10);
+        // helm (head) — knight helmet with a visor slit
+        disc();
+        g.fillStyle(0xaab4be, 1); g.fillRoundedRect(10, 8, 20, 22, 7);
+        g.fillStyle(0xc8d0d8, 1); g.fillRoundedRect(10, 8, 20, 6, 7);
+        g.fillStyle(0x33373c, 1); g.fillRect(12, 17, 16, 3); g.fillRect(19, 20, 2, 7);
         tex('helm');
 
         g.destroy();
@@ -563,6 +609,9 @@ export default class GameScene extends Phaser.Scene {
         this.add.ellipse(FIRE.x, FIRE.y + 14, 46, 16, 0x000000, 0.18).setDepth(1);
         this.add.rectangle(FIRE.x - 8, FIRE.y + 8, 26, 7, 0x5b3a1d).setAngle(20).setDepth(2);
         this.add.rectangle(FIRE.x + 8, FIRE.y + 8, 26, 7, 0x5b3a1d).setAngle(-20).setDepth(2);
+        // green aura behind the flame when "healing fire" is chosen
+        this.healGlow = this.add.image(FIRE.x, FIRE.y, 'glow').setBlendMode(Phaser.BlendModes.ADD)
+            .setTint(0x4dff88).setDepth(2).setAlpha(0).setScale(1.6);
         this.flame = this.add.image(FIRE.x, FIRE.y + 4, 'flame').setOrigin(0.5, 0.82).setDepth(3);
         this.tweens.add({ targets: this.flame, scaleX: 1.12, scaleY: 0.92, duration: 380, yoyo: true, repeat: -1 });
     }
@@ -686,6 +735,12 @@ export default class GameScene extends Phaser.Scene {
 
         // the lumberjack himself bulks up a little
         this.player.setScale(1 + Math.min(0.22, axe * 0.05));
+
+        // bigger-fire upgrade → larger campfire; healing fire → green flame + aura
+        this.fireSizeMult = 1 + Math.min(0.7, (this.upgLevels.fire || 0) * 0.12);
+        const regen = this.upgLevels.regen || 0;
+        this.flame.setTint([0xffffff, 0xd8ffe0, 0xb0ffc8, 0x88ffb0, 0x66ff99][Math.min(regen, 4)]);
+        this.healGlow.setAlpha(regen > 0 ? Math.min(0.55, 0.2 + regen * 0.12) : 0);
 
         // re-skin the avatar with mightier gear when any visible upgrade changes
         const gear = {
@@ -2102,8 +2157,10 @@ export default class GameScene extends Phaser.Scene {
         this.nightOverlay.setAlpha(Phaser.Math.Linear(this.nightOverlay.alpha, nightAlpha, 0.05));
         const glowA = this.phase === 'night' ? (0.5 + 0.5 * fuelRatio) : 0.18 * fuelRatio;
         this.fireGlow.setAlpha(Phaser.Math.Linear(this.fireGlow.alpha, glowA, 0.05));
-        this.fireGlow.setScale(1.4 + 1.6 * fuelRatio);
-        this.flame.setScale(0.6 + 0.7 * fuelRatio, 0.6 + 0.7 * fuelRatio);
+        const fs = this.fireSizeMult || 1;
+        this.fireGlow.setScale((1.4 + 1.6 * fuelRatio) * fs);
+        this.flame.setScale((0.6 + 0.7 * fuelRatio) * fs, (0.6 + 0.7 * fuelRatio) * fs);
+        this.healGlow.setScale((1.2 + 0.8 * fuelRatio) * fs);
 
         this.updateHUD(remain);
     }
