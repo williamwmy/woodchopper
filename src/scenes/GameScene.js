@@ -539,11 +539,15 @@ export default class GameScene extends Phaser.Scene {
         g.fillStyle(0xffd770, 1); g.fillEllipse(16, 29, 6, 6);
         tex('btn_fire', 32, 34);
 
-        // shop — a builder's hammer
-        g.fillStyle(0x7a5230, 1); g.fillRect(14, 11, 4, 18);
-        g.fillStyle(0x5c3c20, 1); g.fillRect(14, 11, 1.5, 18);
-        g.fillStyle(0x9aa3ad, 1); g.fillRoundedRect(6, 5, 20, 9, 2);
-        g.fillStyle(0xc2cad3, 1); g.fillRect(6, 5, 20, 3);
+        // shop — a claw hammer (build). Asymmetric head + offset handle so it
+        // doesn't read like a mailbox
+        g.fillStyle(0x7a5230, 1); g.fillRect(13, 13, 4, 17);             // handle (left of centre)
+        g.fillStyle(0x5c3c20, 1); g.fillRect(13, 13, 1.5, 17);
+        g.fillStyle(0xaab4be, 1); g.fillRoundedRect(9, 6, 18, 8, 3);     // head bar
+        g.fillStyle(0xc8d0d8, 1); g.fillRect(9, 6, 18, 2);              // shine
+        g.fillStyle(0x8a929c, 1); g.fillRect(23, 4, 5, 12);             // heavy striking face (right)
+        g.fillStyle(0x9aa3ad, 1); g.fillTriangle(9, 6, 9, 14, 3, 12);   // curved claw (left)
+        g.fillStyle(0x05140a, 1); g.fillTriangle(7, 8, 9, 9, 9, 13);    // claw split/notch
         tex('btn_shop', 32, 32);
 
         // padlock — closed
