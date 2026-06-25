@@ -83,6 +83,7 @@ export default class MenuScene extends Phaser.Scene {
     }
 
     makeLangToggle() {
+        this._switching = false;   // reset each time the menu (re)builds
         const cur = getLang();
         const mk = (x, code, label) => {
             const on = cur === code;
