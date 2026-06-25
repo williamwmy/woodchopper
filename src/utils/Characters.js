@@ -21,7 +21,7 @@ export const PERKS = [
     { key: 'drain', icon: '🛡️', name: 'Seig glo',     desc: '-2% bålforbruk' },
     { key: 'crit',  icon: '🎯', name: 'Skarpt blikk',  desc: '+1.5% kritisk sjanse' },
     { key: 'knock', icon: '🥊', name: 'Tungt slag',    desc: '+2 tilbakeslag' },
-    { key: 'armor', icon: '🪖', name: 'Rustning',      desc: '+1 rustning (mindre skade)' }
+    { key: 'armor', icon: '🦺', name: 'Rustning',      desc: '+1 rustning (mindre skade)' }
 ];
 
 const NEW_PERKS = () => ({ axe: 0, hp: 0, speed: 0, fuel: 0, wood: 0, drain: 0, crit: 0, knock: 0, armor: 0 });
@@ -111,7 +111,7 @@ export function attributes(ch) {
         { icon: '🛡️', label: 'Bålvern', value: (p.drain * 2) + '%' },
         { icon: '🎯', label: 'Kritisk sjanse', value: (p.crit * 1.5).toFixed(1) + '%' },
         { icon: '🥊', label: 'Tilbakeslag', value: 7 + p.knock * 2 },
-        { icon: '🪖', label: 'Rustning', value: p.armor }
+        { icon: '🦺', label: 'Rustning', value: p.armor }
     ];
 }
 
@@ -181,7 +181,7 @@ export function generateAvatarTexture(scene, key, look, gear = {}) {
     if (female) { g.fillStyle(hair, 1); g.fillRect(10, 6, 2, 11); g.fillRect(24, 6, 2, 11); }
     else { g.fillStyle(hair, 1); g.fillRect(12, 14, 11, 3); }   // beard
 
-    // --- armour: the character looks mightier as armor grows (over the clothes) ---
+    // --- body armour: the character looks mightier as armor grows (no helmet) ---
     if (armorTier >= 1) {
         // breastplate over the shirt + a shoulder guard on the arm
         g.fillStyle(0x9aa3ad, 1); g.fillRect(10, 18, 16, 12);
@@ -192,22 +192,43 @@ export function generateAvatarTexture(scene, key, look, gear = {}) {
         g.fillStyle(0x6e767f, 1); g.fillRect(23, 22, 7, 1);
     }
     if (armorTier >= 2) {
-        // pauldrons + a helmet band across the brow
+        // pauldrons
         g.fillStyle(0xc2cad3, 1); g.fillRect(8, 16, 6, 5); g.fillRect(24, 16, 6, 5);
         g.fillStyle(0x8a929c, 1); g.fillRect(8, 20, 6, 1); g.fillRect(24, 20, 6, 1);
-        g.fillStyle(0x9aa3ad, 1); g.fillRect(11, 5, 14, 3);
-        g.fillStyle(0xc2cad3, 1); g.fillRect(11, 5, 14, 1);
     }
     if (armorTier >= 3) {
-        // gilded trim on collar, belt and helm
-        g.fillStyle(0xd8b54a, 1);
-        g.fillRect(10, 18, 16, 1); g.fillRect(10, 29, 16, 2); g.fillRect(11, 7, 14, 1);
+        // gilded trim on collar & belt + leg greaves
+        g.fillStyle(0xd8b54a, 1); g.fillRect(10, 18, 16, 1); g.fillRect(10, 29, 16, 2);
+        g.fillStyle(0x9aa3ad, 1); g.fillRect(12, 30, 5, 7); g.fillRect(19, 30, 5, 7);
+        g.fillStyle(0xc2cad3, 1); g.fillRect(12, 30, 5, 1); g.fillRect(19, 30, 5, 1);
     }
     if (armorTier >= 4) {
-        // crowned, horned helm with a glowing band — a true champion
+        // grand champion plate — bigger pauldrons + gold edging
+        g.fillStyle(0xd8d8e0, 1); g.fillRect(7, 15, 7, 6); g.fillRect(23, 15, 7, 6);
+        g.fillStyle(0xd8b54a, 1); g.fillRect(7, 15, 7, 1); g.fillRect(23, 15, 7, 1);
+    }
+
+    // --- head armour: a separate helmet upgrade, drawn over the hair ---
+    const helmTier = gear.helm || 0;
+    if (helmTier >= 1) {
+        // iron skullcap
+        g.fillStyle(0x9aa3ad, 1); g.fillRect(11, 3, 14, 5);
+        g.fillStyle(0xc2cad3, 1); g.fillRect(11, 3, 14, 1);          // shine
+        g.fillStyle(0x6e767f, 1); g.fillRect(11, 7, 14, 1);          // rim
+    }
+    if (helmTier >= 2) {
+        // brow band + nose guard
+        g.fillStyle(0x8a929c, 1); g.fillRect(11, 8, 14, 2);
+        g.fillStyle(0x9aa3ad, 1); g.fillRect(17, 9, 2, 5);
+    }
+    if (helmTier >= 3) {
+        g.fillStyle(0xd8b54a, 1); g.fillRect(11, 7, 14, 1);         // gold trim
+    }
+    if (helmTier >= 4) {
+        // horned, crested great-helm
         g.fillStyle(0xefe3b0, 1);
-        g.fillTriangle(10, 5, 8, -2, 13, 5); g.fillTriangle(26, 5, 28, -2, 23, 5);
-        g.fillStyle(0xffe9a0, 1); g.fillRect(12, 3, 12, 2);
+        g.fillTriangle(11, 4, 8, -2, 14, 4); g.fillTriangle(25, 4, 28, -2, 22, 4);
+        g.fillStyle(0xffe9a0, 1); g.fillRect(13, 1, 10, 2);
     }
 
     // axe — head grows and glows hotter with axe upgrades

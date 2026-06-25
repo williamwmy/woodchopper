@@ -58,7 +58,8 @@ export default class GameScene extends Phaser.Scene {
         this.critChance = 0;      // 0..1 chance for a critical hit
         this.critMult = 2;        // damage multiplier on a crit
         this.knockback = 7;       // px enemies are shoved on an axe hit
-        this.armor = 0;           // flat damage reduction per enemy hit
+        this.armor = 0;           // body armour: flat damage reduction per hit
+        this.headArmor = 0;       // helmet: extra flat damage reduction
         this.fuelDrainMult = 1;   // bålmester reduces this
         this.dawnHeal = 0;        // hp restored each dawn
         this.upgLevels = {};      // how many times each upgrade was taken
@@ -306,6 +307,13 @@ export default class GameScene extends Phaser.Scene {
         g.fillStyle(0xffb347, 1); g.fillRect(0, 0, 5, 5);
         g.generateTexture('ember', 5, 5); g.clear();
 
+        // campfire flame (replaces the 🔥 emoji) — layered tongues, hot core
+        g.fillStyle(0xd63a16, 1); g.fillTriangle(7, 42, 20, 2, 33, 42); g.fillEllipse(20, 40, 28, 16);   // outer red-orange
+        g.fillStyle(0xff7a1e, 1); g.fillTriangle(10, 42, 20, 9, 30, 42); g.fillEllipse(20, 41, 21, 12);  // mid orange
+        g.fillStyle(0xffc24a, 1); g.fillTriangle(13, 42, 20, 17, 27, 42); g.fillEllipse(20, 42, 13, 9);  // inner gold
+        g.fillStyle(0xffe89a, 1); g.fillEllipse(20, 42, 8, 7);                                            // white-hot core
+        g.generateTexture('flame', 40, 48); g.clear();
+
         // slash – a crescent blade trail (centred, opening to the right)
         g.fillStyle(0xffffff, 0.95);
         g.beginPath();
@@ -460,7 +468,7 @@ export default class GameScene extends Phaser.Scene {
         this.add.ellipse(FIRE.x, FIRE.y + 14, 46, 16, 0x000000, 0.18).setDepth(1);
         this.add.rectangle(FIRE.x - 8, FIRE.y + 8, 26, 7, 0x5b3a1d).setAngle(20).setDepth(2);
         this.add.rectangle(FIRE.x + 8, FIRE.y + 8, 26, 7, 0x5b3a1d).setAngle(-20).setDepth(2);
-        this.flame = this.add.text(FIRE.x, FIRE.y, '🔥', { fontSize: '40px' }).setOrigin(0.5).setDepth(3);
+        this.flame = this.add.image(FIRE.x, FIRE.y + 4, 'flame').setOrigin(0.5, 0.82).setDepth(3);
         this.tweens.add({ targets: this.flame, scaleX: 1.12, scaleY: 0.92, duration: 380, yoyo: true, repeat: -1 });
     }
 
@@ -558,6 +566,15 @@ export default class GameScene extends Phaser.Scene {
         return 4;
     }
 
+    // helmet tiers from head armour
+    helmTier(head) {
+        if (head <= 0) return 0;
+        if (head < 6) return 1;
+        if (head < 12) return 2;
+        if (head < 20) return 3;
+        return 4;
+    }
+
     refreshPowerVisuals(changed) {
         const axe = this.upgLevels.axe || 0;
         const color = this.tierColor(axe);
@@ -578,11 +595,12 @@ export default class GameScene extends Phaser.Scene {
         // re-skin the avatar with mightier gear when any visible upgrade changes
         const gear = {
             armor: this.armorTier(this.armor),
+            helm: this.helmTier(this.headArmor),
             axe: this.upgLevels.axe || 0,
             vit: this.upgLevels.vit || 0,
             boots: this.upgLevels.boots || 0
         };
-        const sig = `${gear.armor}-${gear.axe}-${gear.vit}-${gear.boots}`;
+        const sig = `${gear.armor}-${gear.helm}-${gear.axe}-${gear.vit}-${gear.boots}`;
         if (sig !== this._gearSig) {
             this._gearSig = sig;
             generateAvatarTexture(this, 'player', this.char, gear);
@@ -1028,7 +1046,8 @@ export default class GameScene extends Phaser.Scene {
             { key: 'crit', icon: '🎯', name: 'Kritisk treff', desc: '+10% kritisk sjanse', apply: () => { this.critChance = Math.min(1, this.critChance + 0.10); }, maxed: () => this.critChance >= 1 },
             { key: 'critdmg', icon: '💥', name: 'Dødelig hugg', desc: '+50% kritisk skade', apply: () => { this.critMult += 0.5; } },
             { key: 'knock', icon: '🥊', name: 'Kraftig slag', desc: '+12 tilbakeslag på fiender', apply: () => { this.knockback += 12; } },
-            { key: 'armor', icon: '🪖', name: 'Rustning', desc: '+4 rustning (mindre skade per treff)', apply: () => { this.armor += 4; } }
+            { key: 'armor', icon: '🦺', name: 'Kroppsrustning', desc: '+4 rustning (mindre skade per treff)', apply: () => { this.armor += 4; } },
+            { key: 'helm', icon: '⛑️', name: 'Hjelm', desc: '+3 hoderustning (mindre skade per treff)', apply: () => { this.headArmor += 3; } }
         ];
     }
 
@@ -1092,7 +1111,8 @@ export default class GameScene extends Phaser.Scene {
                 ['🪓', 'Skade', `${this.axeDmg}`],
                 ['🎯', 'Krit', `${Math.round(this.critChance * 100)}% ×${this.critMult.toFixed(1)}`],
                 ['❤️', 'Maks liv', `${this.maxHp}`],
-                ['🪖', 'Rustning', `${this.armor}`],
+                ['🦺', 'Rustning', `${this.armor}`],
+                ['⛑️', 'Hjelm', `${this.headArmor}`],
                 ['👢', 'Fart', `${Math.round(this.moveSpeed)}`],
                 ['⚡', 'Sving', `${this.swingDelay}ms${this.swingDelay <= 120 ? ' (maks)' : ''}`],
                 ['🌀', 'Rekkevidde', `${this.swingRange}`],
@@ -2088,7 +2108,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     damagePlayer(amount) {
-        const dmg = Math.max(1, amount - this.armor);   // armor softens each hit (never to 0)
+        const dmg = Math.max(1, amount - this.armor - this.headArmor);   // body + head armour soften each hit (never to 0)
         this.hp = Math.max(0, this.hp - dmg);
         this.sfx.hurt();
         this.cameras.main.shake(120, 0.01);
