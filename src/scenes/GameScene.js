@@ -1445,7 +1445,7 @@ export default class GameScene extends Phaser.Scene {
             { key: 'bombekaster', icon: '💣', name: 'Bombekaster', desc: 'Splintskade på klynger av fiender', base: 52, max: 12 },
             { key: 'lyntaarn', icon: '⚡', name: 'Lyntårn', desc: 'Lyn som hopper mellom flere fiender (3 i nivå 1)', base: 46, max: 10 },
             { key: 'piggfelle', icon: '🪤', name: 'Piggfelle', desc: 'Skader og sinker fiender i sonen', base: 18, max: 14 },
-            { key: 'hus', icon: '🏠', name: 'Hytte', desc: 'Heler deg sakte (+3 liv/s)', base: 38, max: 4 },
+            { key: 'hus', icon: '🏠', name: 'Hytte', desc: 'Heler deg når du står i nærheten (+3 liv/5s)', base: 38, max: 4 },
             { key: 'sagbruk', icon: '🪚', name: 'Sagbruk', desc: '+1 ved per tre & raskere gjenvekst', base: 30, max: 4 }
         ];
     }
@@ -1499,7 +1499,12 @@ export default class GameScene extends Phaser.Scene {
                 .setStrokeStyle(2, afford ? 0x4a6b3a : 0x33402c)
                 .setInteractive({ useHandCursor: true });
             c.add(row);
-            c.add(this.add.text(40, y, it.icon, { fontSize: '30px' }).setOrigin(0.5));
+            // show the actual in-game structure sprite instead of an emoji
+            const icon = this.add.image(40, y, this.structTex(it.key)).setOrigin(0.5);
+            const maxDim = Math.max(icon.width, icon.height);
+            if (maxDim > 34) icon.setScale(34 / maxDim);
+            if (!afford) icon.setAlpha(0.45);
+            c.add(icon);
             c.add(this.add.text(68, y - 14, `${it.name}  (${built}/${max})`, {
                 fontSize: '16px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
             }).setOrigin(0, 0.5));
@@ -1617,7 +1622,6 @@ export default class GameScene extends Phaser.Scene {
         this.buildCounts[item.key]++;
         this.spawnStructure(item.key, x, y);
         this.sfx.build();
-        if (item.key === 'hus') this.houseRegen = this.buildCounts.hus * 3;
         this.updateHUD();
 
         // keep placing more of the same until out of wood / at the cap
@@ -1644,11 +1648,16 @@ export default class GameScene extends Phaser.Scene {
         s.type = type; s.dead = false; s.cd = 0; s.lvl = 1;
         s.buildBase = this.shopItems().find(it => it.key === type).base;
         if (type === 'gjerde') { s.maxHp = 300; s.hp = 300; }   // sturdy palisade
+        // huts show their heal radius as a faint green ring
+        if (type === 'hus') {
+            s.healRing = this.add.circle(p.x, p.y, this.hutRadius(1), 0x49c46a, 0.06)
+                .setStrokeStyle(2, 0x6fe39a, 0.3).setDepth(0);
+        }
         s.shadow = this.addShadow(p.x, p.y + 14, 32, 0.45, p.y - 1);
         s.setScale(0.2);
         this.tweens.add({ targets: s, scale: 1, duration: 300, ease: 'Back.out' });
-        // fences, ranged buildings & traps can be upgraded by tapping them by day
-        if (GameScene.SPEC[type] || type === 'gjerde') {
+        // fences, towers, traps & huts can be upgraded by tapping them by day
+        if (GameScene.SPEC[type] || type === 'gjerde' || type === 'hus') {
             s.setInteractive({ useHandCursor: true });
             s.on('pointerup', () => this.openUpgrade(s));
             // a level badge that appears once it's been upgraded
@@ -1672,12 +1681,14 @@ export default class GameScene extends Phaser.Scene {
             s.lvlBadge.setText(`Lv${lvl}`).setVisible(lvl >= 2)
                 .setBackgroundColor(badgeBg[Math.min(lvl, 5)]);
         }
-        // tint only non-fences (fences flash red on hit and would lose a tint)
-        if (s.type !== 'gjerde') {
+        // tint only towers/traps (fences flash red on hit; huts are buildings)
+        if (GameScene.SPEC[s.type]) {
             const tints = [0xffffff, 0xffe9b0, 0xffd166, 0xffb43a, 0xff8c1a];
             s.setTint(tints[Math.min(lvl - 1, 4)]);
             if (lvl >= 2) s.setScale(1 + (lvl - 1) * 0.07);   // don't clobber the spawn pop-in
         }
+        // a hut's heal ring grows with its level
+        if (s.type === 'hus' && s.healRing) s.healRing.setRadius(this.hutRadius(lvl));
     }
 
     // ---- tower upgrades: another place to sink wood ----
@@ -1703,10 +1714,15 @@ export default class GameScene extends Phaser.Scene {
         return Math.round(300 * (1 + 0.7 * (lvl - 1)));
     }
 
+    // a hut only heals while the player stands within its radius
+    hutHealPer5s(lvl) { return 3 + (lvl - 1) * 2; }    // HP restored per 5 seconds
+    hutRadius(lvl) { return 80 + (lvl - 1) * 16; }
+
     openUpgrade(s) {
         if (this.menuOpen || this.placing || this.phase !== 'day' || s.dead) return;
         const MAX_LVL = 5;
         const isFence = s.type === 'gjerde';
+        const isHut = s.type === 'hus';
         this.menuOpen = true;
         this.swingHeld = false;
         const c = this.add.container(0, 0).setDepth(4300);
@@ -1716,7 +1732,7 @@ export default class GameScene extends Phaser.Scene {
         const maxed = lvl >= MAX_LVL;
         const cost = this.upgradeCost(s);
 
-        const name = { gjerde: 'Gjerde', taarn: 'Vakttårn', iskanon: 'Iskanon', bombekaster: 'Bombekaster', lyntaarn: 'Lyntårn', piggfelle: 'Piggfelle' }[s.type];
+        const name = { gjerde: 'Gjerde', taarn: 'Vakttårn', iskanon: 'Iskanon', bombekaster: 'Bombekaster', lyntaarn: 'Lyntårn', piggfelle: 'Piggfelle', hus: 'Hytte' }[s.type];
         c.add(this.add.text(W / 2, H / 2 - 120, `${name} · nivå ${lvl}`, {
             fontSize: '24px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
         }).setOrigin(0.5));
@@ -1726,6 +1742,10 @@ export default class GameScene extends Phaser.Scene {
             statLine = maxed
                 ? `Maks HP ${s.maxHp} (nå ${Math.ceil(Math.max(0, s.hp))})`
                 : `Maks HP ${s.maxHp} → ${this.fenceHp(lvl + 1)}\nRepareres helt ved oppgradering`;
+        } else if (isHut) {
+            statLine = maxed
+                ? `Heling ${this.hutHealPer5s(lvl)} liv/5s · radius ${this.hutRadius(lvl)}`
+                : `Heling ${this.hutHealPer5s(lvl)} → ${this.hutHealPer5s(lvl + 1)} liv/5s\nRadius ${this.hutRadius(lvl)} → ${this.hutRadius(lvl + 1)}`;
         } else {
             const cur = this.structStats(s);
             const next = maxed ? cur : this.structStats({ type: s.type, lvl: lvl + 1 });
@@ -1775,6 +1795,7 @@ export default class GameScene extends Phaser.Scene {
         if (s.type === 'gjerde') this.buildCounts.gjerde--;
         if (s.shadow) s.shadow.destroy();
         if (s.lvlBadge) s.lvlBadge.destroy();
+        if (s.healRing) s.healRing.destroy();
         this.burst(s.x, s.y, 'chip', 8);
         this.tweens.add({ targets: s, alpha: 0, scaleY: 0, duration: 200, onComplete: () => s.destroy() });
         this.structures = this.structures.filter(x => x !== s);
@@ -2092,9 +2113,21 @@ export default class GameScene extends Phaser.Scene {
         this.updateEnemies(dt, time);
         this.updateStructures(time);
 
-        // house passive healing
-        if (this.houseRegen > 0 && this.hp < this.maxHp) {
-            this.hp = Math.min(this.maxHp, this.hp + this.houseRegen * dt);
+        // huts heal the player only while standing within their radius (stacks)
+        let healPerSec = 0;
+        this.structures.forEach(s => {
+            if (s.dead || s.type !== 'hus') return;
+            if (Phaser.Math.Distance.Between(this.player.x, this.player.y, s.x, s.y) < this.hutRadius(s.lvl || 1)) {
+                healPerSec += this.hutHealPer5s(s.lvl || 1) / 5;
+            }
+        });
+        if (healPerSec > 0 && this.hp < this.maxHp) {
+            this.hp = Math.min(this.maxHp, this.hp + healPerSec * dt);
+            if (time > (this.healFxCd || 0)) {   // occasional green sparkle while healing
+                this.healFxCd = time + 600;
+                this.burst(this.player.x, this.player.y - 6, 'ember', 2);
+                this.floatText(this.player.x, this.player.y - 28, '+', '#6fe39a');
+            }
         }
 
         // standing in the fire burns you — no safe camping spot
@@ -2437,7 +2470,9 @@ export default class GameScene extends Phaser.Scene {
             const card = this.add.rectangle(W / 2, y, 320, 104, 0x1d2e18)
                 .setStrokeStyle(3, 0x4a6b3a).setInteractive({ useHandCursor: true });
             c.add(card);
-            c.add(this.add.text(W / 2, y - 26, perk.icon, { fontSize: '36px' }).setOrigin(0.5));
+            // reuse the custom upgrade-icon art for the matching permanent perk
+            const pmap = { axe: 'axe', hp: 'vit', speed: 'boots', fuel: 'fire', wood: 'lumber', drain: 'ember', crit: 'crit', knock: 'knock', armor: 'armor' };
+            c.add(this.add.image(W / 2, y - 26, 'upg_' + (pmap[perk.key] || 'axe')).setOrigin(0.5));
             c.add(this.add.text(W / 2, y + 12, perk.name, {
                 fontSize: '18px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
             }).setOrigin(0.5));
