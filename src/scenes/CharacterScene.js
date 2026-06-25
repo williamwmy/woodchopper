@@ -108,7 +108,14 @@ export default class CharacterScene extends Phaser.Scene {
         this.reset();
         this.title(t('char.sheetTitle'));
 
-        this.avatar(W / 2, 130, ch, 3.4);
+        // hidden test menu: tap the avatar 5 times
+        const av = this.avatar(W / 2, 130, ch, 3.4);
+        av.setInteractive({ useHandCursor: true });
+        this._tapCount = 0;
+        av.on('pointerup', () => {
+            this._tapCount++;
+            if (this._tapCount >= 5) { this._tapCount = 0; this.openDebugDialog(); }
+        });
         this.layer.add(this.add.text(W / 2, 196, ch.name, {
             fontSize: '24px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
         }).setOrigin(0.5));
@@ -136,7 +143,91 @@ export default class CharacterScene extends Phaser.Scene {
             fontSize: '13px', fontFamily: 'Arial', color: '#bcd0c0'
         }).setOrigin(0.5));
 
-        this.button(W / 2, H - 80, 220, 52, t('char.back'), 0x3a4049, () => this.showRoster());
+        this.button(W / 2 - 78, H - 80, 148, 52, t('char.rename'), 0x2a6b3a, () => this.openRenameDialog(ch));
+        this.button(W / 2 + 78, H - 80, 148, 52, t('char.back'), 0x3a4049, () => this.showRoster());
+    }
+
+    openRenameDialog(ch) {
+        const lay = this.add.container(0, 0).setDepth(9000);
+        lay.add(this.add.rectangle(0, 0, W, H, 0x05080d, 0.9).setOrigin(0).setInteractive());
+        lay.add(this.add.text(W / 2, H / 2 - 80, t('char.renameTitle'), {
+            fontSize: '22px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
+        }).setOrigin(0.5));
+        const el = document.createElement('input');
+        el.type = 'text'; el.maxLength = 14; el.value = ch.name;
+        el.style.cssText = 'width:300px;height:46px;border-radius:10px;border:2px solid #4a6b3a;' +
+            'background:#1d2e18;color:#fff;font:600 20px Arial;text-align:center;outline:none;';
+        const dom = this.add.dom(W / 2, H / 2 - 20, el); lay.add(dom);
+        setTimeout(() => { el.focus(); el.select(); }, 50);
+
+        const save = this.add.rectangle(W / 2, H / 2 + 50, 240, 52, 0xc1440e)
+            .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
+        lay.add(save);
+        lay.add(this.add.text(W / 2, H / 2 + 50, t('char.save'), {
+            fontSize: '19px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+        }).setOrigin(0.5));
+        const doSave = () => {
+            const name = el.value.trim().slice(0, 14);
+            if (name) { ch.name = name; saveRoster(this.roster); }
+            lay.destroy(); this.showSheet(ch);
+        };
+        save.on('pointerup', doSave);
+        el.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') doSave(); });
+
+        const cancel = this.add.rectangle(W / 2, H / 2 + 114, 240, 44, 0x3a4049)
+            .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
+        lay.add(cancel);
+        lay.add(this.add.text(W / 2, H / 2 + 114, t('char.cancel'), {
+            fontSize: '17px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+        }).setOrigin(0.5));
+        cancel.on('pointerup', () => lay.destroy());
+    }
+
+    // hidden test/debug dialog — jump to a night with chosen starting wood
+    openDebugDialog() {
+        const lay = this.add.container(0, 0).setDepth(9000);
+        lay.add(this.add.rectangle(0, 0, W, H, 0x05080d, 0.9).setOrigin(0).setInteractive());
+        lay.add(this.add.text(W / 2, 120, '🛠 TEST MODE', {
+            fontSize: '26px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
+        }).setOrigin(0.5));
+        lay.add(this.add.text(W / 2, 156, 'Start at a chosen night with extra wood.\nFirst day is endless — build, then start the night.', {
+            fontSize: '13px', fontFamily: 'Arial', color: '#cfe3d4', align: 'center', lineSpacing: 5
+        }).setOrigin(0.5));
+
+        const field = (labelTxt, y, value, min, max) => {
+            lay.add(this.add.text(W / 2 - 130, y, labelTxt, {
+                fontSize: '16px', fontFamily: 'Arial', fontStyle: 'bold', color: '#e8efe9'
+            }).setOrigin(0, 0.5));
+            const el = document.createElement('input');
+            el.type = 'number'; el.min = min; el.max = max; el.value = value;
+            el.style.cssText = 'width:120px;height:40px;border-radius:10px;border:2px solid #4a6b3a;' +
+                'background:#1d2e18;color:#fff;font:600 18px Arial;text-align:center;outline:none;';
+            const dom = this.add.dom(W / 2 + 80, y, el);
+            lay.add(dom);
+            return el;
+        };
+        const levelEl = field('Night:', 232, '49', 1, 50);
+        const woodEl = field('Wood:', 292, '2000', 0, 99999);
+
+        const start = this.add.rectangle(W / 2, 372, 240, 56, 0xc1440e)
+            .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
+        lay.add(start);
+        lay.add(this.add.text(W / 2, 372, '▶ START TEST', {
+            fontSize: '20px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+        }).setOrigin(0.5));
+        start.on('pointerup', () => {
+            const lvl = Phaser.Math.Clamp(parseInt(levelEl.value, 10) || 1, 1, 50);
+            const wood = Phaser.Math.Clamp(parseInt(woodEl.value, 10) || 0, 0, 99999);
+            this.scene.start('GameScene', { startLevel: lvl, startWood: wood });
+        });
+
+        const cancel = this.add.rectangle(W / 2, 440, 240, 46, 0x3a4049)
+            .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
+        lay.add(cancel);
+        lay.add(this.add.text(W / 2, 440, t('char.cancel'), {
+            fontSize: '17px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+        }).setOrigin(0.5));
+        cancel.on('pointerup', () => lay.destroy());
     }
 
     // ---------------------------------------------------------------- create

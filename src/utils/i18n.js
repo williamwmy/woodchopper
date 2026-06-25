@@ -185,7 +185,8 @@ const STR = {
         'char.namePlaceholder': 'Enter name…',
         'char.defaultName': 'Lumberjack',
         'char.fGender': 'GENDER', 'char.fSkin': 'SKIN', 'char.fHair': 'HAIR', 'char.fShirt': 'CLOTHES',
-        'char.newBtn': '➕ NEW CHARACTER', 'char.playBtn': '▶ PLAY', 'char.createBtn': 'CREATE'
+        'char.newBtn': '➕ NEW CHARACTER', 'char.playBtn': '▶ PLAY', 'char.createBtn': 'CREATE',
+        'char.rename': '✏ RENAME', 'char.renameTitle': 'New name', 'char.save': 'SAVE'
     },
     no: {
         'menu.tagline': 'Hold bålet brennende til daggry',
@@ -355,7 +356,8 @@ const STR = {
         'char.namePlaceholder': 'Skriv navn…',
         'char.defaultName': 'Tømmerhugger',
         'char.fGender': 'KJØNN', 'char.fSkin': 'HUD', 'char.fHair': 'HÅR', 'char.fShirt': 'KLÆR',
-        'char.newBtn': '➕ NY KARAKTER', 'char.playBtn': '▶ SPILL', 'char.createBtn': 'OPPRETT'
+        'char.newBtn': '➕ NY KARAKTER', 'char.playBtn': '▶ SPILL', 'char.createBtn': 'OPPRETT',
+        'char.rename': '✏ BYTT NAVN', 'char.renameTitle': 'Nytt navn', 'char.save': 'LAGRE'
     }
 };
 

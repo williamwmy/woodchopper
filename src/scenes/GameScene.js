@@ -22,7 +22,8 @@ export default class GameScene extends Phaser.Scene {
         super({ key: 'GameScene' });
     }
 
-    create() {
+    create(data) {
+        this.testCfg = (data && data.startLevel) ? data : null;   // hidden test mode
         // adapt layout to the actual canvas size
         W = this.scale.width;
         H = this.scale.height;
@@ -119,7 +120,40 @@ export default class GameScene extends Phaser.Scene {
         this.createControls();
         this.setupInput();
 
-        this.banner(t('phase.day1'), 0xffd166);
+        if (this.testCfg) {
+            // jump straight to a chosen night with extra wood; first day is endless
+            this.wave = this.testCfg.startLevel;
+            this.wood = this.testCfg.startWood;
+            this.firstDayInfinite = true;
+            this.phaseEnd = this.time.now + 9e9;
+            this.updateHUD();
+            this.makeTestDayButtons();
+            this.banner('🛠 TEST — Natt ' + this.wave + '\nBygg, så start natten', 0xffd166);
+        } else {
+            this.banner(t('phase.day1'), 0xffd166);
+        }
+    }
+
+    // controls shown only during the endless test-mode first day
+    makeTestDayButtons() {
+        const startBtn = this.add.rectangle(W / 2, PLAY_TOP + 30, 200, 44, 0xc1440e)
+            .setStrokeStyle(3, 0xffd166).setScrollFactor(0).setDepth(2600).setInteractive({ useHandCursor: true });
+        const startTxt = this.add.text(W / 2, PLAY_TOP + 30, '▶ START NATT', {
+            fontSize: '17px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(2601);
+        const upBtn = this.add.rectangle(W / 2, PLAY_TOP + 78, 200, 40, 0x2a6b3a)
+            .setStrokeStyle(3, 0xffd166).setScrollFactor(0).setDepth(2600).setInteractive({ useHandCursor: true });
+        const upTxt = this.add.text(W / 2, PLAY_TOP + 78, '🎁 VELG OPPGRADERING', {
+            fontSize: '13px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(2601);
+        this.testBtns = [startBtn, startTxt, upBtn, upTxt];
+        upBtn.on('pointerup', () => { if (!this.menuOpen) this.offerUpgrades('🎁 Test'); });
+        startBtn.on('pointerup', () => {
+            if (this.menuOpen) return;
+            this.firstDayInfinite = false;
+            this.testBtns.forEach(o => o.destroy()); this.testBtns = null;
+            this.startNight();
+        });
     }
 
     // ---------------------------------------------------------------- textures
@@ -2656,7 +2690,7 @@ export default class GameScene extends Phaser.Scene {
 
         // phase timer
         const remain = Math.max(0, Math.ceil((this.phaseEnd - time) / 1000));
-        if (time >= this.phaseEnd && !this.nightEnding) {
+        if (time >= this.phaseEnd && !this.nightEnding && !this.firstDayInfinite) {
             if (this.phase === 'day') this.startNight();
             else this.startDay();
         }
@@ -2848,7 +2882,10 @@ export default class GameScene extends Phaser.Scene {
         this.fuelBar.width = 150 * Phaser.Math.Clamp(this.fuel / this.fuelMax, 0, 1);
         if (remain !== undefined) {
             const day = this.phase === 'day';
-            if (day) {
+            if (this.firstDayInfinite) {
+                this.phaseText.setText('🛠 Dag · ∞').setColor('#ffd166');
+                this.hintText.setText(t('hud.hintDay'));
+            } else if (day) {
                 this.phaseText.setText(t('hud.day', { n: this.wave, s: remain })).setColor('#ffd166');
                 this.hintText.setText(t('hud.hintDay'));
             } else {
