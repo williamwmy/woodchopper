@@ -1389,7 +1389,7 @@ export default class GameScene extends Phaser.Scene {
             { key: 'iskanon', icon: '🧊', name: 'Iskanon', desc: 'Fryser fiender så de går saktere', base: 40, max: 12 },
             { key: 'bombekaster', icon: '💣', name: 'Bombekaster', desc: 'Splintskade på klynger av fiender', base: 52, max: 12 },
             { key: 'lyntaarn', icon: '⚡', name: 'Lyntårn', desc: 'Lyn som hopper mellom flere fiender (3 i nivå 1)', base: 46, max: 10 },
-            { key: 'piggfelle', icon: '🪤', name: 'Piggfelle', desc: 'Skader alle fiender rundt seg', base: 18, max: 14 },
+            { key: 'piggfelle', icon: '🪤', name: 'Piggfelle', desc: 'Skader og sinker fiender i sonen', base: 18, max: 14 },
             { key: 'hus', icon: '🏠', name: 'Hytte', desc: 'Heler deg sakte (+3 liv/s)', base: 38, max: 4 },
             { key: 'sagbruk', icon: '🪚', name: 'Sagbruk', desc: '+1 ved per tre & raskere gjenvekst', base: 30, max: 4 }
         ];
@@ -1733,7 +1733,7 @@ export default class GameScene extends Phaser.Scene {
         iskanon:     { cd: 1100, range: 125, dmg: 5,  tex: 'icebolt', slow: 0.45, slowMs: 2500 },
         bombekaster: { cd: 1600, range: 165, dmg: 14, tex: 'shell', splash: 88, arc: true },
         lyntaarn:    { cd: 1100, range: 172, dmg: 8,  chain: 3, chainR: 90 },
-        piggfelle:   { cd: 700,  range: 40,  dmg: 8,  trap: true }
+        piggfelle:   { cd: 450,  range: 58,  dmg: 8,  trap: true, slow: 0.6, slowMs: 800 }
     };
 
     updateStructures(time) {
@@ -1743,14 +1743,24 @@ export default class GameScene extends Phaser.Scene {
             const spec = this.structStats(s);   // scaled by upgrade level
 
             if (spec.trap) {
-                // damage everything standing on the trap
+                // caltrops: damage AND snare everything standing on the trap, so
+                // fast enemies get held in the zone instead of blowing through
                 let hit = false;
                 this.enemies.forEach(e => {
                     if (!e.dead && Phaser.Math.Distance.Between(s.x, s.y, e.x, e.y) < spec.range) {
-                        this.hurtEnemy(e, spec.dmg); hit = true;
+                        this.hurtEnemy(e, spec.dmg);
+                        if (spec.slow) { e.slowUntil = this.time.now + spec.slowMs; e.slowFactor = spec.slow; e.slowIcy = false; }
+                        hit = true;
                     }
                 });
-                if (hit) { s.cd = time + spec.cd; this.burst(s.x, s.y, 'chip', 5); }
+                if (hit) {
+                    s.cd = time + spec.cd;
+                    this.tweens.add({ targets: s, scaleY: s.scaleY * 1.3, duration: 90, yoyo: true });  // spikes thrust up
+                    const ring = this.add.circle(s.x, s.y, spec.range, 0xff5a3c, 0.12)
+                        .setStrokeStyle(2, 0xff7a4a, 0.55).setDepth(s.depth - 1);
+                    this.tweens.add({ targets: ring, alpha: 0, duration: 220, onComplete: () => ring.destroy() });
+                    this.burst(s.x, s.y, 'chip', 6);
+                }
                 return;
             }
 
@@ -1855,6 +1865,7 @@ export default class GameScene extends Phaser.Scene {
                     if (spec.slow) {
                         enemy.slowUntil = this.time.now + spec.slowMs;
                         enemy.slowFactor = spec.slow;
+                        enemy.slowIcy = true;
                         enemy.setTint(0x9fe6ff);
                         this.burst(enemy.x, enemy.y, 'icebolt', 4);
                     }
@@ -2148,7 +2159,7 @@ export default class GameScene extends Phaser.Scene {
             // ice-cannon slow → clearly icy light-blue while frozen
             let speed = e.speed;
             const frozen = e.slowUntil && time < e.slowUntil;
-            if (frozen) { speed *= e.slowFactor; e.setTintFill(0xaee9ff); }
+            if (frozen) { speed *= e.slowFactor; if (e.slowIcy) e.setTintFill(0xaee9ff); }
             else if (e.slowUntil) { e.slowUntil = 0; e.clearTint(); }
 
             // flying enemies flap their wings (frozen ones hold still)
