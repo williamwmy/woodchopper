@@ -137,6 +137,8 @@ export function generateAvatarTexture(scene, key, look, gear = {}) {
     const axeLv = gear.axe || 0;
     const vitLv = gear.vit || 0;
     const bootLv = gear.boots || 0;
+    const reachLv = gear.reach || 0;
+    const swiftLv = gear.swift || 0;
 
     // a mighty cape billows behind once well armoured (drawn first, peeks at edges)
     if (armorTier >= 3) {
@@ -231,12 +233,21 @@ export function generateAvatarTexture(scene, key, look, gear = {}) {
         g.fillStyle(0xffe9a0, 1); g.fillRect(13, 1, 10, 2);
     }
 
-    // axe — head grows and glows hotter with axe upgrades
+    // axe — head grows/glows with axe upgrades, shaft lengthens with reach
     const headCol = [0xcfd6dd, 0xffe08a, 0xffae42, 0xff7a2b, 0xff5a2b][Math.min(axeLv, 4)];
     const grow = Math.min(4, axeLv);
-    g.fillStyle(0x6b4423, 1); g.fillRect(28, 5, 3, 24);                       // handle
+    const ext = Math.min(9, reachLv * 2);                                     // longer shaft per reach lvl
+    g.fillStyle(0x6b4423, 1); g.fillRect(28, 5, 3, 24 + ext);                 // handle (longer)
     g.fillStyle(headCol, 1); g.fillRect(26 - grow, 3, 9 + grow, 8);           // head (wider)
     g.fillStyle(shade(headCol, 0.78), 1); g.fillRect(26 - grow, 8, 9 + grow, 3);
+
+    // a second axe in the off-hand once you've sped up your swing enough
+    if (swiftLv >= 4) {
+        g.fillStyle(skin, 1); g.fillRect(7, 25, 4, 4);                        // off-hand
+        g.fillStyle(0x6b4423, 1); g.fillRect(8, 5, 3, 24 + ext);             // handle
+        g.fillStyle(headCol, 1); g.fillRect(4, 3, 9 + grow, 8);             // head (points out-left)
+        g.fillStyle(shade(headCol, 0.78), 1); g.fillRect(4, 8, 9 + grow, 3);
+    }
 
     g.generateTexture(key, 36, 44);
     g.destroy();
