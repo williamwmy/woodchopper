@@ -110,7 +110,11 @@ upgrades, shop/building, phases (day/night), and `update()`.
   immune stone) at 25, `stalker` (fast blade assassin) at 30, `warlock` (robed
   caster) at 35, `behemoth` (colossal boss) at 40. `specialChance` and base
   hp/dmg ramp with the wave (extra ramp after night 8); pick is biased toward the
-  newest/toughest variants. **Elite escalation** (`eliteChance`, from night 25):
+  newest/toughest variants. **Ranged casters**: `wraith` and `warlock` carry a
+  `ranged` spec and fire dodgeable bolts at the player (`enemyShoot` →
+  `this.enemyShots`, moved/collided in `updateEnemyShots`); bolt damage is based
+  on the night and capped so it chips rather than one-shots, so you must keep
+  moving. **Elite escalation** (`eliteChance`, from night 25):
   a growing share spawn buffed (×1.7 hp, ×1.35 dmg, bigger) with a glowing red
   `e.aura` glow that trails them — so it keeps climbing past night 40 even after
   every type is out (clean up `e.aura` wherever the enemy is destroyed). Ice-

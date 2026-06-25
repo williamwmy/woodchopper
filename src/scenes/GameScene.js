@@ -85,6 +85,7 @@ export default class GameScene extends Phaser.Scene {
         this.facing = 1;               // 1 right, -1 left
         this.trees = [];
         this.enemies = [];
+        this.enemyShots = [];          // projectiles fired by ranged enemies
         this.structures = [];
         this.buildCounts = { gjerde: 0, taarn: 0, iskanon: 0, bombekaster: 0, lyntaarn: 0, piggfelle: 0, hus: 0, sagbruk: 0 };
         this.houseRegen = 0;
@@ -306,6 +307,12 @@ export default class GameScene extends Phaser.Scene {
         // ember particle
         g.fillStyle(0xffb347, 1); g.fillRect(0, 0, 5, 5);
         g.generateTexture('ember', 5, 5); g.clear();
+
+        // enemy projectile — a glowing orb (tinted per caster)
+        g.fillStyle(0xffffff, 0.25); g.fillCircle(7, 7, 7);
+        g.fillStyle(0xffffff, 0.7); g.fillCircle(7, 7, 4.5);
+        g.fillStyle(0xffffff, 1); g.fillCircle(7, 7, 2.5);
+        g.generateTexture('ebolt', 14, 14); g.clear();
 
         // campfire flame (replaces the 🔥 emoji) — layered tongues, hot core
         g.fillStyle(0xd63a16, 1); g.fillTriangle(7, 42, 20, 2, 33, 42); g.fillEllipse(20, 40, 28, 16);   // outer red-orange
@@ -1996,6 +2003,8 @@ export default class GameScene extends Phaser.Scene {
             this.tweens.add({ targets: e, alpha: 0, scale: 0, duration: 250, onComplete: () => e.destroy() });
         });
         this.enemies = [];
+        this.enemyShots.forEach(p => p.destroy());   // clear any bolts still in flight
+        this.enemyShots = [];
         this.score += 50 * survived;
         if (this.dawnHeal > 0) this.hp = Math.min(this.maxHp, this.hp + this.dawnHeal);
         this.sfx.dayStart();
@@ -2049,11 +2058,11 @@ export default class GameScene extends Phaser.Scene {
             brute:    { tex: 'brute',    hp: 2.6,  speed: 0.55, dmg: 1.7, scale: 1.4,  knock: 0.4 },
             flyer:    { tex: 'flyer',    hp: 0.55, speed: 1.5,  dmg: 0.9, scale: 0.95, flies: true, knock: 0.85 },
             revenant: { tex: 'revenant', hp: 3.6,  speed: 0.85, dmg: 2.1, scale: 1.3,  knock: 0.5 },
-            wraith:   { tex: 'wraith',   hp: 1.2,  speed: 1.75, dmg: 1.5, scale: 1.05, knock: 0.9 },
+            wraith:   { tex: 'wraith',   hp: 1.2,  speed: 1.75, dmg: 1.5, scale: 1.05, knock: 0.9, ranged: { range: 165, cd: 1700, speed: 155, dmgMult: 0.16, tint: 0x9fffc8 } },
             titan:    { tex: 'titan',    hp: 6.5,  speed: 0.5,  dmg: 2.8, scale: 1.7,  knock: 0.22 },
             golem:    { tex: 'golem',    hp: 4.5,  speed: 0.45, dmg: 2.4, scale: 1.5,  knock: 0.15 },
             stalker:  { tex: 'stalker',  hp: 1.4,  speed: 1.9,  dmg: 1.8, scale: 1.0,  knock: 0.8 },
-            warlock:  { tex: 'warlock',  hp: 2.2,  speed: 0.9,  dmg: 2.4, scale: 1.2,  knock: 0.55 },
+            warlock:  { tex: 'warlock',  hp: 2.2,  speed: 0.9,  dmg: 2.4, scale: 1.2,  knock: 0.55, ranged: { range: 205, cd: 1400, speed: 135, dmgMult: 0.22, tint: 0xc9a6ff } },
             behemoth: { tex: 'behemoth', hp: 9,    speed: 0.45, dmg: 3.2, scale: 2.0,  knock: 0.12 }
         }[type];
 
@@ -2065,6 +2074,13 @@ export default class GameScene extends Phaser.Scene {
         e.baseScale = spec.scale;
         e.knockResist = spec.knock;
         e.flies = !!spec.flies;
+        // ranged casters fire dodgeable bolts at the player from a distance
+        if (spec.ranged) {
+            e.ranged = spec.ranged;
+            // bolt damage scales mildly with the night and is capped so it chips, never one-shots
+            e.projDmg = Phaser.Math.Clamp(Math.round(base.dmg * spec.ranged.dmgMult), 3, 48);
+            e.shootCd = this.time.now + Phaser.Math.Between(400, spec.ranged.cd);   // stagger first shot
+        }
         e.flap = Math.random() * Math.PI * 2;
         e.hitCd = 0;
         e.dead = false;
@@ -2111,6 +2127,7 @@ export default class GameScene extends Phaser.Scene {
         // hold swing button (or space) to keep swinging automatically
         if (this.swingLocked || this.swingHeld || this.keys.SPACE.isDown) this.swing();
         this.updateEnemies(dt, time);
+        this.updateEnemyShots(dt);
         this.updateStructures(time);
 
         // huts heal the player only while standing within their radius (stacks)
@@ -2302,7 +2319,41 @@ export default class GameScene extends Phaser.Scene {
                 e.hitCd = time + 600;
                 this.damagePlayer(e.dmg);
             }
+
+            // ranged casters lob a dodgeable bolt when the player is in range
+            if (e.ranged && !frozen && toPlayer < e.ranged.range && toPlayer > 26 && time > e.shootCd) {
+                e.shootCd = time + e.ranged.cd;
+                this.enemyShoot(e);
+            }
         });
+    }
+
+    enemyShoot(e) {
+        const a = Phaser.Math.Angle.Between(e.x, e.y, this.player.x, this.player.y);
+        const p = this.add.image(e.x, e.y, 'ebolt').setTint(e.ranged.tint).setDepth(1250)
+            .setBlendMode(Phaser.BlendModes.ADD);
+        p.vx = Math.cos(a) * e.ranged.speed;
+        p.vy = Math.sin(a) * e.ranged.speed;
+        p.dmg = e.projDmg;
+        p.life = 2.4;
+        this.enemyShots.push(p);
+        this.sfx.towerShoot();
+        // a quick wind-up flash at the caster
+        this.burst(e.x, e.y - 6, 'ember', 2);
+        this.tweens.add({ targets: p, scale: { from: 0.5, to: 1.1 }, duration: 160 });
+    }
+
+    updateEnemyShots(dt) {
+        for (let i = this.enemyShots.length - 1; i >= 0; i--) {
+            const p = this.enemyShots[i];
+            p.x += p.vx * dt; p.y += p.vy * dt;
+            p.rotation += dt * 8;
+            p.life -= dt;
+            const hit = Phaser.Math.Distance.Between(p.x, p.y, this.player.x, this.player.y) < 16;
+            const off = p.x < -10 || p.x > W + 10 || p.y < PLAY_TOP - 20 || p.y > PLAY_BOTTOM + 20;
+            if (hit) { this.damagePlayer(p.dmg); this.burst(p.x, p.y, 'ember', 4); }
+            if (hit || off || p.life <= 0) { p.destroy(); this.enemyShots.splice(i, 1); }
+        }
     }
 
     damagePlayer(amount) {
