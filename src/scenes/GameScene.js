@@ -147,7 +147,7 @@ export default class GameScene extends Phaser.Scene {
             fontSize: '13px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
         }).setOrigin(0.5).setScrollFactor(0).setDepth(2601);
         this.testBtns = [startBtn, startTxt, upBtn, upTxt];
-        upBtn.on('pointerup', () => { if (!this.menuOpen) this.offerUpgrades('🎁 Test'); });
+        upBtn.on('pointerup', () => { if (!this.menuOpen) { this.testUpgradeChain = true; this.offerUpgrades('🎁 Test'); } });
         startBtn.on('pointerup', () => {
             if (this.menuOpen) return;
             this.firstDayInfinite = false;
@@ -1683,6 +1683,7 @@ export default class GameScene extends Phaser.Scene {
         }).setOrigin(0.5).setAlpha(0);
         c.add(hint);
 
+        const chain = this.testUpgradeChain;   // test mode: keep offering after each pick
         const select = (it) => {
             it.apply();
             this.upgLevels[it.key] = (this.upgLevels[it.key] || 0) + 1;
@@ -1692,6 +1693,7 @@ export default class GameScene extends Phaser.Scene {
             c.destroy();
             this.menuOpen = false;
             this.updateHUD();
+            if (chain && this.testUpgradeChain) this.time.delayedCall(40, () => this.offerUpgrades(headline));
         };
 
         picks.forEach((it, i) => {
@@ -1709,10 +1711,10 @@ export default class GameScene extends Phaser.Scene {
             }).setOrigin(0.5));
             c.add(cardC);
 
-            // staggered pop-in; card becomes tappable only once it lands —
-            // this doubles as the "anti-misclick" delay
+            // staggered pop-in; card becomes tappable only once it lands (anti-misclick).
+            // In the test chain it pops in instantly so you can click rapidly.
             this.tweens.add({
-                targets: cardC, scale: 1, alpha: 1, duration: 360, delay: 340 + i * 240, ease: 'Back.out',
+                targets: cardC, scale: 1, alpha: 1, duration: chain ? 110 : 360, delay: chain ? 0 : 340 + i * 240, ease: 'Back.out',
                 onComplete: () => {
                     if (!cardC.active) return;
                     if (i === picks.length - 1) this.tweens.add({ targets: hint, alpha: 1, duration: 200 });
@@ -1724,6 +1726,17 @@ export default class GameScene extends Phaser.Scene {
                 }
             });
         });
+
+        // a FERDIG button to stop the test chain
+        if (chain) {
+            const done = this.add.rectangle(W / 2, H - 54, 200, 46, 0xc1440e)
+                .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
+            c.add(done);
+            c.add(this.add.text(W / 2, H - 54, '✓ ' + t('shop.done'), {
+                fontSize: '18px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+            }).setOrigin(0.5));
+            done.on('pointerup', () => { this.testUpgradeChain = false; c.destroy(); this.menuOpen = false; });
+        }
 
         this.upgradeContainer = c;
     }
