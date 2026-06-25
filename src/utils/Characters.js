@@ -233,20 +233,23 @@ export function generateAvatarTexture(scene, key, look, gear = {}) {
         g.fillStyle(0xffe9a0, 1); g.fillRect(13, 1, 10, 2);
     }
 
-    // axe — head grows/glows with axe upgrades, shaft lengthens with reach
+    // axe — head glows with axe upgrades, shaft lengthens with reach, and the
+    // head grows bigger the more knockback you stack (from knock lvl 2)
+    const knockLv = gear.knock || 0;
     const headCol = [0xcfd6dd, 0xffe08a, 0xffae42, 0xff7a2b, 0xff5a2b][Math.min(axeLv, 4)];
-    const grow = Math.min(4, axeLv);
+    const grow = Math.min(9, axeLv + Math.max(0, knockLv - 1));               // wider head
+    const headH = 8 + Math.min(7, Math.round(grow * 0.7));                    // taller head
     const ext = Math.min(9, reachLv * 2);                                     // longer shaft per reach lvl
     g.fillStyle(0x6b4423, 1); g.fillRect(28, 5, 3, 24 + ext);                 // handle (longer)
-    g.fillStyle(headCol, 1); g.fillRect(26 - grow, 3, 9 + grow, 8);           // head (wider)
-    g.fillStyle(shade(headCol, 0.78), 1); g.fillRect(26 - grow, 8, 9 + grow, 3);
+    g.fillStyle(headCol, 1); g.fillRect(26 - grow, 3, 9 + grow, headH);       // head
+    g.fillStyle(shade(headCol, 0.78), 1); g.fillRect(26 - grow, 3 + headH - 3, 9 + grow, 3);
 
     // a second axe in the off-hand once you've sped up your swing enough
     if (swiftLv >= 4) {
         g.fillStyle(skin, 1); g.fillRect(7, 25, 4, 4);                        // off-hand
         g.fillStyle(0x6b4423, 1); g.fillRect(8, 5, 3, 24 + ext);             // handle
-        g.fillStyle(headCol, 1); g.fillRect(4, 3, 9 + grow, 8);             // head (points out-left)
-        g.fillStyle(shade(headCol, 0.78), 1); g.fillRect(4, 8, 9 + grow, 3);
+        g.fillStyle(headCol, 1); g.fillRect(4, 3, 9 + grow, headH);         // head (points out-left)
+        g.fillStyle(shade(headCol, 0.78), 1); g.fillRect(4, 3 + headH - 3, 9 + grow, 3);
     }
 
     g.generateTexture(key, 36, 44);

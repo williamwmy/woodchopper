@@ -758,9 +758,10 @@ export default class GameScene extends Phaser.Scene {
             vit: this.upgLevels.vit || 0,
             boots: this.upgLevels.boots || 0,
             reach: this.upgLevels.reach || 0,
-            swift: this.upgLevels.swift || 0
+            swift: this.upgLevels.swift || 0,
+            knock: this.upgLevels.knock || 0
         };
-        const sig = `${gear.armor}-${gear.helm}-${gear.axe}-${gear.vit}-${gear.boots}-${gear.reach}-${gear.swift}`;
+        const sig = `${gear.armor}-${gear.helm}-${gear.axe}-${gear.vit}-${gear.boots}-${gear.reach}-${gear.swift}-${gear.knock}`;
         if (sig !== this._gearSig) {
             this._gearSig = sig;
             generateAvatarTexture(this, 'player', this.char, gear);
