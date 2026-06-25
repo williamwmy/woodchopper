@@ -1529,7 +1529,7 @@ export default class GameScene extends Phaser.Scene {
     // ---------------------------------------------------------------- shop / building
     shopItems() {
         return [
-            { key: 'gjerde', icon: '🚧', name: 'Gjerde', desc: 'Robust palisade som stopper fiender (fast pris)', base: 100, flat: true, max: 24 },
+            { key: 'gjerde', icon: '🚧', name: 'Gjerde', desc: 'Permanent palisade — repareres hver natt', base: 60, max: 24 },
             { key: 'taarn', icon: '🗼', name: 'Vakttårn', desc: 'Skyter automatisk på fiender', base: 28, max: 16 },
             { key: 'iskanon', icon: '🧊', name: 'Iskanon', desc: 'Fryser fiender så de går saktere', base: 40, max: 12 },
             { key: 'bombekaster', icon: '💣', name: 'Bombekaster', desc: 'Splintskade på klynger av fiender', base: 52, max: 12 },
@@ -2086,7 +2086,8 @@ export default class GameScene extends Phaser.Scene {
     spawnBoss() {
         const BOSS_HP = 13000;
         const scale = (W * 0.55) / 64;                  // ~half the screen wide
-        const e = this.add.image(W / 2, PLAY_TOP + 20, 'behemoth').setDepth(PLAY_TOP + 20);
+        // rises up from the bottom of the screen
+        const e = this.add.image(W / 2, PLAY_BOTTOM + 40, 'behemoth').setDepth(PLAY_BOTTOM + 40);
         e.isBoss = true; e.etype = 'finalboss';
         e.hp = e.maxHp = BOSS_HP;
         e.speed = 16;                                   // very slow
@@ -2096,10 +2097,26 @@ export default class GameScene extends Phaser.Scene {
         e.knockResist = 0;                              // immune to knockback
         e.dead = false; e.smashCd = 0; e.touchCd = 0; e.gnawCd = 0;
         e.target = null; e.attackTime = 0; e.flap = 0;
-        e.bornUntil = this.time.now + 850;              // let the entrance tween finish first
+        // dramatic entrance: rises from below + thunderous steps before it acts
+        const STEPS = 6, STEP_MS = 720;
+        e.bornUntil = this.time.now + 850;
+        e.entranceUntil = this.time.now + STEPS * STEP_MS + 300;
         e.setScale(0);
         this.tweens.add({ targets: e, scale, duration: 800, ease: 'Back.out' });
-        this.cameras.main.shake(500, 0.012);
+        this.tweens.add({ targets: e, y: PLAY_BOTTOM - 16, duration: STEPS * STEP_MS, ease: 'Sine.out' });
+        this.sfx.bossTheme();
+        // each heavy step shakes the screen harder so you feel it approach
+        this.time.addEvent({
+            delay: STEP_MS, repeat: STEPS - 1, callback: () => {
+                if (e.dead) return;
+                this._bossStep = (this._bossStep || 0) + 1;
+                this.cameras.main.shake(280, 0.006 + this._bossStep * 0.0018);
+                this.sfx.bossStep();
+                this.tweens.add({ targets: e, scaleY: e.scaleY * 0.9, duration: 110, yoyo: true });
+                this.burst(e.x, e.y + e.bossReach * 0.5, 'ember', 4);
+            }
+        });
+        this._bossStep = 0;
         this.enemies.push(e);
         this.boss = e;
         this.nightSpawned = 1;
@@ -2117,9 +2134,11 @@ export default class GameScene extends Phaser.Scene {
         const e = this.boss;
         if (!e || e.dead) return;
         e.flap += dt;
-        if (time > e.bornUntil) e.setScale(e.baseScale * (1 + Math.sin(e.flap * 2) * 0.02));
         e.setDepth(e.y);
         e.hpBar.width = (W - 40) * Phaser.Math.Clamp(e.hp / e.maxHp, 0, 1);
+        // during the rising/stomping entrance it doesn't move, smash or hit yet
+        if (time < e.entranceUntil) return;
+        if (time > e.bornUntil) e.setScale(e.baseScale * (1 + Math.sin(e.flap * 2) * 0.02));
 
         if (e.target && !e.target.dead) {
             // stopped, smashing the structure; destroyed after (its level) seconds
@@ -2182,6 +2201,11 @@ export default class GameScene extends Phaser.Scene {
         this.enemies = [];
         this.enemyShots.forEach(p => p.destroy());   // clear any bolts still in flight
         this.enemyShots = [];
+        // fences are permanent: auto-repair every one to its level's full HP at dawn
+        this.structures.forEach(s => {
+            if (s.dead || s.type !== 'gjerde') return;
+            s.broken = false; s.hp = s.maxHp; s.setAlpha(1).setAngle(0);
+        });
         this.score += 50 * survived;
         if (this.dawnHeal > 0) this.hp = Math.min(this.maxHp, this.hp + this.dawnHeal);
         this.sfx.dayStart();
@@ -2458,10 +2482,11 @@ export default class GameScene extends Phaser.Scene {
             const toFire = Phaser.Math.Distance.Between(e.x, e.y, FIRE.x, FIRE.y);
             const toPlayer = Phaser.Math.Distance.Between(e.x, e.y, this.player.x, this.player.y);
 
-            // a fence in the way must be smashed first — but flyers soar over it
+            // a fence in the way must be smashed first — but flyers soar over it,
+            // and a broken (breached) fence no longer blocks until it's repaired
             let fence = null, fd = 42;
             if (!e.flies) this.structures.forEach(s => {
-                if (s.type !== 'gjerde' || s.dead) return;
+                if (s.type !== 'gjerde' || s.dead || s.broken) return;
                 const d = Phaser.Math.Distance.Between(e.x, e.y, s.x, s.y);
                 if (d < fd) { fd = d; fence = s; }
             });
@@ -2473,10 +2498,15 @@ export default class GameScene extends Phaser.Scene {
                     fence.setTintFill(0xff8888);
                     const f = fence;   // capture for the delayed restore
                     this.time.delayedCall(80, () => {
-                        if (f.active) { f.clearTint(); f.setAlpha(0.45 + 0.55 * Math.max(0, f.hp) / f.maxHp); }
+                        if (f.active && !f.broken) { f.clearTint(); f.setAlpha(0.45 + 0.55 * Math.max(0, f.hp) / f.maxHp); }
                     });
                     this.sfx.hitEnemy();
-                    if (fence.hp <= 0) this.destroyStructure(fence);
+                    // breached, not destroyed — it stays put and auto-repairs at dawn
+                    if (fence.hp <= 0) {
+                        fence.broken = true; fence.hp = 0;
+                        fence.clearTint(); fence.setAlpha(0.28).setAngle(72);
+                        this.burst(fence.x, fence.y, 'chip', 8);
+                    }
                 }
             } else if (toFire > 38) {
                 // move toward fire, or the player if they're in the way

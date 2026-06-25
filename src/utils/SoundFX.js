@@ -134,4 +134,11 @@ export class SoundFX {
     crit()       { this.voice(880, 0.12, { type: 'triangle', vol: 0.24, slideTo: 1400 }); this.noise(0.05, 0.18, 3200); }
     zap()        { this.noise(0.14, 0.16, 4200); this.voice(1200, 0.1, { type: 'triangle', vol: 0.12, slideTo: 360 }); }
     fanfare()    { this.arp([523, 659, 784, 1047], 0.13, { type: 'triangle', vol: 0.34, reverb: true }); this.time(() => this.arp([784, 1047, 1319, 1568], 0.12, { type: 'sine', vol: 0.3, reverb: true }), 0.55); }
+    bossStep()   { this.voice(70, 0.34, { type: 'sine', vol: 0.42, slideTo: 38, rich: true }); this.noise(0.16, 0.22, 220); }
+    bossTheme()  {
+        // slow, low, minor — an ominous approaching dread
+        [[110, 0], [131, 0.55], [104, 1.1], [98, 1.7], [110, 2.5], [147, 3.0], [110, 3.6]]
+            .forEach(([f, t]) => this.time(() => this.voice(f, 0.62, { type: 'sine', vol: 0.3, reverb: true, rich: true }), t));
+        this.time(() => this.voice(660, 1.3, { type: 'triangle', vol: 0.1, reverb: true, slideTo: 560 }), 1.1);
+    }
 }

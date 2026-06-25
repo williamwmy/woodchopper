@@ -80,8 +80,11 @@ upgrades, shop/building, phases (day/night), and `update()`.
   to range; axe power → player aura (white→gold→orange→red) + size + slash tint;
   boots → dust trails; bigger fire → glow scales with `fuelMax`.
 - **Shop/building** (`shopItems`, `startPlacement`/`tryPlace`, `spawnStructure`):
-  fences (sturdy 300-hp palisade that blocks enemies; **flat price** — items can
-  set `flat: true` so `shopCost` skips the 1.4^count scaling), watchtowers
+  fences (sturdy 300-hp palisade that blocks enemies; **permanent** — when an
+  enemy grinds one to 0 hp it `broken`s/stops blocking rather than being
+  destroyed, and every fence auto-repairs to its level's full hp at dawn; price
+  scales 1.4^count like the others. `shopCost` still honours `flat: true` if any
+  item sets it), watchtowers
   (auto-shoot), ice cannons (slow), mortars (AoE splash), tesla/lightning towers
   (`lyntaarn` — chain lightning that hops between enemies via `zapChain`; longer
   reach than the mortar, less damage, `chain` jumps grow per level), spike traps
