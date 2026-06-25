@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { loadRoster, getActive, perkCount, generateAvatarTexture } from '../utils/Characters.js';
+import { t, getLang, setLang } from '../utils/i18n.js';
 
 let W = 400;
 let H = 700;
@@ -39,18 +40,14 @@ export default class MenuScene extends Phaser.Scene {
             color: '#ffd166'
         }).setOrigin(0.5);
 
-        this.add.text(W / 2, 130, 'Hold bålet brennende til daggry', {
+        this.add.text(W / 2, 130, t('menu.tagline'), {
             fontSize: '15px', fontFamily: 'Arial', color: '#cfe3d4'
         }).setOrigin(0.5);
 
         // How to play
         const lines = [
-            '☀  DAG — hugg trær for ved',
-            '🌙  NATT — fiender kommer for bålet',
-            '🪵  Ved er brensel, valuta OG byggemateriale',
-            '🔥  Mat bålet — slukner det, dør du',
-            '🪓  Sving øksa for å hugge & slåss',
-            '🛒  Bygg gjerder, tårn, hus & sagbruk'
+            t('menu.how.day'), t('menu.how.night'), t('menu.how.wood'),
+            t('menu.how.feed'), t('menu.how.swing'), t('menu.how.build')
         ];
         const info = this.add.text(W / 2, 256, lines.join('\n'), {
             fontSize: '14px', fontFamily: 'Arial', color: '#e8efe9',
@@ -63,23 +60,40 @@ export default class MenuScene extends Phaser.Scene {
         generateAvatarTexture(this, 'menu_avatar', char);
         const cy = info.y + info.height + 22;
         this.add.image(W / 2 - 96, cy, 'menu_avatar').setScale(1.4);
-        this.add.text(W / 2 - 72, cy, `Spiller som ${char.name}  ·  beste natt ${char.bestNight}`, {
+        this.add.text(W / 2 - 72, cy, t('menu.playingAs', { name: char.name, night: char.bestNight }), {
             fontSize: '13px', fontFamily: 'Arial', color: '#ffd166'
         }).setOrigin(0, 0.5);
 
         // Characters button
-        this.makeButton(W / 2, H - 170, '👥 KARAKTERER', 0x2a6b3a, () => {
+        this.makeButton(W / 2, H - 170, t('menu.characters'), 0x2a6b3a, () => {
             this.scene.start('CharacterScene');
         });
 
         // START anchored above the bottom hint so it can never be clipped
-        this.makeButton(W / 2, H - 98, 'START', 0xc1440e, () => {
+        this.makeButton(W / 2, H - 98, t('menu.start'), 0xc1440e, () => {
             this.scene.start('GameScene');
         });
 
-        this.add.text(W / 2, H - 30, 'WASD: gå  •  Mellomrom: sving  •  F: mat bål  •  B: bygg', {
+        this.add.text(W / 2, H - 30, t('menu.controls'), {
             fontSize: '11px', fontFamily: 'Arial', color: '#8aa090'
         }).setOrigin(0.5);
+
+        // Language toggle (top-right) — English / Norsk, persisted
+        this.makeLangToggle();
+    }
+
+    makeLangToggle() {
+        const cur = getLang();
+        const mk = (x, code, label) => {
+            const on = cur === code;
+            const r = this.add.rectangle(x, 26, 50, 26, on ? 0xc1440e : 0x223018, on ? 1 : 0.6)
+                .setStrokeStyle(2, on ? 0xffd166 : 0x4a6b3a).setInteractive({ useHandCursor: true });
+            this.add.text(x, 26, label, { fontSize: '13px', fontFamily: 'Arial', fontStyle: 'bold', color: on ? '#fff' : '#9fb08a' }).setOrigin(0.5);
+            r.on('pointerup', () => { if (getLang() !== code) { setLang(code); this.scene.restart(); } });
+        };
+        this.add.text(W - 116, 12, t('menu.language'), { fontSize: '10px', fontFamily: 'Arial', color: '#8aa090' }).setOrigin(0, 0);
+        mk(W - 86, 'en', 'EN');
+        mk(W - 30, 'no', 'NO');
     }
 
     makeButton(x, y, label, color, onClick) {

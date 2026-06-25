@@ -1,6 +1,7 @@
 // Character roster + meta-progression, stored in localStorage.
 // Each character has an appearance (gender/skin/hair/shirt) and its own
 // permanent perks earned at night milestones. Replaces the old single profile.
+import { t } from './i18n.js';
 const KEY = 'emberwood_characters';
 const OLD_KEY = 'emberwood_profile';
 const MILESTONE_STEP = 5;
@@ -99,19 +100,22 @@ export function milestonesUnlocked(night) { return Math.floor(night / MILESTONE_
 export function nextMilestone(claimed) { return (claimed + 1) * MILESTONE_STEP; }
 export function perkCount(ch) { return Object.values(ch.perks).reduce((a, b) => a + b, 0); }
 
+// localized gender label
+export function genderLabel(i) { return t(i === 1 ? 'gender.female' : 'gender.male'); }
+
 // derived attributes for the character sheet (mirror GameScene base stats)
 export function attributes(ch) {
     const p = ch.perks;
     return [
-        { icon: '🪓', label: 'Skade', value: 6 + p.axe },
-        { icon: '❤️', label: 'Maks liv', value: 100 + p.hp * 3 },
-        { icon: '👢', label: 'Fart', value: 150 + p.speed * 4 },
-        { icon: '🔥', label: 'Bålkapasitet', value: 100 + p.fuel * 5 },
-        { icon: '🪵', label: 'Startved', value: 12 + p.wood * 2 },
-        { icon: '🛡️', label: 'Bålvern', value: (p.drain * 2) + '%' },
-        { icon: '🎯', label: 'Kritisk sjanse', value: (p.crit * 1.5).toFixed(1) + '%' },
-        { icon: '🥊', label: 'Tilbakeslag', value: 7 + p.knock * 2 },
-        { icon: '🦺', label: 'Rustning', value: p.armor }
+        { icon: '🪓', label: t('attr.damage'), value: 6 + p.axe },
+        { icon: '❤️', label: t('attr.maxhp'), value: 100 + p.hp * 3 },
+        { icon: '👢', label: t('attr.speed'), value: 150 + p.speed * 4 },
+        { icon: '🔥', label: t('attr.fuel'), value: 100 + p.fuel * 5 },
+        { icon: '🪵', label: t('attr.startwood'), value: 12 + p.wood * 2 },
+        { icon: '🛡️', label: t('attr.firedef'), value: (p.drain * 2) + '%' },
+        { icon: '🎯', label: t('attr.crit'), value: (p.crit * 1.5).toFixed(1) + '%' },
+        { icon: '🥊', label: t('attr.knock'), value: 7 + p.knock * 2 },
+        { icon: '🦺', label: t('attr.armorlbl'), value: p.armor }
     ];
 }
 

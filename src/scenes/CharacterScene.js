@@ -2,8 +2,9 @@ import Phaser from 'phaser';
 import {
     loadRoster, saveRoster, getActive, addCharacter, deleteCharacter,
     GENDERS, SKINS, HAIRS, SHIRTS, PERKS, attributes, perkCount, nextMilestone,
-    generateAvatarTexture
+    generateAvatarTexture, genderLabel
 } from '../utils/Characters.js';
+import { t } from '../utils/i18n.js';
 
 let W = 400;
 let H = 700;
@@ -64,7 +65,7 @@ export default class CharacterScene extends Phaser.Scene {
     // ---------------------------------------------------------------- roster
     showRoster() {
         this.reset();
-        this.title('KARAKTERER');
+        this.title(t('char.title'));
 
         const list = this.roster.characters;
         const rowH = 70;
@@ -82,7 +83,7 @@ export default class CharacterScene extends Phaser.Scene {
                 fontSize: '18px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
             }).setOrigin(0, 0.5));
             this.layer.add(this.add.text(78, y + 12,
-                `${GENDERS[ch.gender]} · beste natt ${ch.bestNight} · ${perkCount(ch)} boosts`, {
+                t('char.rosterLine', { gender: genderLabel(ch.gender), night: ch.bestNight, boosts: perkCount(ch) }), {
                 fontSize: '12px', fontFamily: 'Arial', color: '#bcd0c0'
             }).setOrigin(0, 0.5));
 
@@ -97,27 +98,27 @@ export default class CharacterScene extends Phaser.Scene {
         });
 
         const by = H - 150;
-        this.button(W / 2, by, 300, 50, '➕ NY KARAKTER', 0x2a6b3a, () => this.showCreate());
-        this.button(W / 2 - 78, by + 60, 140, 52, '▶ SPILL', 0xc1440e, () => this.scene.start('GameScene'));
-        this.button(W / 2 + 78, by + 60, 140, 52, 'MENY', 0x3a4049, () => this.scene.start('MenuScene'));
+        this.button(W / 2, by, 300, 50, t('char.newBtn'), 0x2a6b3a, () => this.showCreate());
+        this.button(W / 2 - 78, by + 60, 140, 52, t('char.playBtn'), 0xc1440e, () => this.scene.start('GameScene'));
+        this.button(W / 2 + 78, by + 60, 140, 52, t('over.menu'), 0x3a4049, () => this.scene.start('MenuScene'));
     }
 
     // ---------------------------------------------------------------- sheet
     showSheet(ch) {
         this.reset();
-        this.title('KARAKTERARK');
+        this.title(t('char.sheetTitle'));
 
         this.avatar(W / 2, 130, ch, 3.4);
         this.layer.add(this.add.text(W / 2, 196, ch.name, {
             fontSize: '24px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
         }).setOrigin(0.5));
         this.layer.add(this.add.text(W / 2, 222,
-            `${GENDERS[ch.gender]} · ${ch.runs} runder · beste natt ${ch.bestNight}`, {
+            t('char.sheetLine', { gender: genderLabel(ch.gender), runs: ch.runs, night: ch.bestNight }), {
             fontSize: '13px', fontFamily: 'Arial', color: '#9fd0ff'
         }).setOrigin(0.5));
 
         // attributes
-        this.layer.add(this.add.text(W / 2, 256, 'ATTRIBUTTER', {
+        this.layer.add(this.add.text(W / 2, 256, t('char.attributes'), {
             fontSize: '14px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
         }).setOrigin(0.5));
         attributes(ch).forEach((a, i) => {
@@ -131,18 +132,18 @@ export default class CharacterScene extends Phaser.Scene {
         });
 
         this.layer.add(this.add.text(W / 2, 452,
-            'Permanent boost for hver 5. natt du når', {
+            t('char.milestoneHint'), {
             fontSize: '13px', fontFamily: 'Arial', color: '#bcd0c0'
         }).setOrigin(0.5));
 
-        this.button(W / 2, H - 80, 220, 52, 'TILBAKE', 0x3a4049, () => this.showRoster());
+        this.button(W / 2, H - 80, 220, 52, t('char.back'), 0x3a4049, () => this.showRoster());
     }
 
     // ---------------------------------------------------------------- create
     showCreate() {
         this.draft = { name: '', gender: 0, skin: 1, hair: 1, shirt: 0 };
         this.reset();
-        this.title('NY KARAKTER');
+        this.title(t('char.newBtn').replace('➕ ',''));
 
         // roomy, fixed vertical rhythm (fits the shortest portrait canvas)
         const yPreview = 132;
@@ -162,7 +163,7 @@ export default class CharacterScene extends Phaser.Scene {
         const el = document.createElement('input');
         el.type = 'text';
         el.maxLength = 14;
-        el.placeholder = 'Skriv navn…';
+        el.placeholder = t('char.namePlaceholder');
         el.value = this.draft.name || '';
         el.style.cssText = 'width:300px;height:44px;border-radius:10px;border:2px solid #4a6b3a;' +
             'background:#1d2e18;color:#fff;font:600 19px Arial;text-align:center;outline:none;';
@@ -173,21 +174,21 @@ export default class CharacterScene extends Phaser.Scene {
         this.genderButtons(yGender);
 
         // colour pickers — big swatches across the full width
-        this.swatchRow('HUD', SKINS, 'skin', ySkin);
-        this.swatchRow('HÅR', HAIRS, 'hair', yHair);
-        this.swatchRow('KLÆR', SHIRTS, 'shirt', yShirt);
+        this.swatchRow(t('char.fSkin'), SKINS, 'skin', ySkin);
+        this.swatchRow(t('char.fHair'), HAIRS, 'hair', yHair);
+        this.swatchRow(t('char.fShirt'), SHIRTS, 'shirt', yShirt);
 
         // actions
-        this.button(W / 2 - 84, H - 56, 152, 56, 'OPPRETT', 0x2a6b3a, () => {
-            if (!this.draft.name) this.draft.name = 'Tømmerhugger';
+        this.button(W / 2 - 84, H - 56, 152, 56, t('char.createBtn'), 0x2a6b3a, () => {
+            if (!this.draft.name) this.draft.name = t('char.defaultName');
             addCharacter(this.roster, this.draft);
             this.showRoster();
         }, '20px');
-        this.button(W / 2 + 84, H - 56, 152, 56, 'AVBRYT', 0x3a4049, () => this.showRoster(), '20px');
+        this.button(W / 2 + 84, H - 56, 152, 56, t('char.cancel'), 0x3a4049, () => this.showRoster(), '20px');
     }
 
     genderButtons(y) {
-        this.layer.add(this.add.text(W / 2, y - 30, 'KJØNN', {
+        this.layer.add(this.add.text(W / 2, y - 30, t('char.fGender'), {
             fontSize: '13px', fontFamily: 'Arial', fontStyle: 'bold', color: '#8aa090'
         }).setOrigin(0.5));
         const rects = [];
@@ -197,6 +198,7 @@ export default class CharacterScene extends Phaser.Scene {
             r.setStrokeStyle(on ? 4 : 2, on ? 0xffd166 : 0x4a6b3a);
         });
         GENDERS.forEach((label, i) => {
+            label = genderLabel(i);
             const x = W / 2 + (i === 0 ? -86 : 86);
             const r = this.add.rectangle(x, y, 156, 46, 0x1d2e18)
                 .setInteractive({ useHandCursor: true });

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { SoundFX } from '../utils/SoundFX.js';
 import { loadRoster, saveRoster, getActive, milestonesUnlocked, perkCount, PERKS, generateAvatarTexture } from '../utils/Characters.js';
+import { t } from '../utils/i18n.js';
 
 // W/H/FIRE/PLAY_BOTTOM are recomputed from the real canvas size in create()
 let W = 400;
@@ -117,7 +118,7 @@ export default class GameScene extends Phaser.Scene {
         this.createControls();
         this.setupInput();
 
-        this.banner('☀  DAG 1\nHugg ved!', 0xffd166);
+        this.banner(t('phase.day1'), 0xffd166);
     }
 
     // ---------------------------------------------------------------- textures
@@ -1039,7 +1040,7 @@ export default class GameScene extends Phaser.Scene {
                 this.swingLocked = !this.swingLocked;
                 localStorage.setItem('emberwood_autoattack', this.swingLocked ? '1' : '0');
                 this.sfx.ensure(); this.sfx.build();
-                this.floatText(this.lockPos.x, this.lockPos.y - 40, this.swingLocked ? 'Auto-hugg låst' : 'Auto-hugg av', '#ffd166');
+                this.floatText(this.lockPos.x, this.lockPos.y - 40, this.swingLocked ? t('fx.autoOn') : t('fx.autoOff'), '#ffd166');
             }
             this.swingHeld = false; this.swingPointerId = null;
             this.refreshLock(false);
@@ -1277,7 +1278,7 @@ export default class GameScene extends Phaser.Scene {
         if (e.hpLabel) e.hpLabel.destroy();
         this.boss = null;
         this.won = true; this.gameIsOver = true;
-        this.gameOverReason = 'Du beseiret sluttbossen på natt 50!';
+        this.gameOverReason = t('win.boss');
         if (this.spawnTimer) this.spawnTimer.remove();
 
         // record run + character
@@ -1302,14 +1303,14 @@ export default class GameScene extends Phaser.Scene {
         c.add(this.add.rectangle(0, 0, W, H, 0x06140a, 0).setOrigin(0));
         this.tweens.add({ targets: c.list[0], alpha: 0.8, duration: 600 });
 
-        const big = this.add.text(W / 2, H / 2 - 30, 'GRATULERER!', {
+        const big = this.add.text(W / 2, H / 2 - 30, t('win.title'), {
             fontSize: '44px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffe066', stroke: '#000000', strokeThickness: 6
         }).setOrigin(0.5).setScale(2).setAlpha(0);
         c.add(big);
         this.tweens.add({ targets: big, scale: 1, alpha: 1, duration: 500, ease: 'Back.out' });
         this.tweens.add({ targets: big, scale: { from: 1, to: 1.06 }, duration: 700, yoyo: true, repeat: -1, delay: 500 });
 
-        const sub = this.add.text(W / 2, H / 2 + 26, 'Du beseiret sluttbossen på natt 50!', {
+        const sub = this.add.text(W / 2, H / 2 + 26, t('win.sub'), {
             fontSize: '16px', fontFamily: 'Arial', color: '#cfe7d0'
         }).setOrigin(0.5).setAlpha(0);
         c.add(sub);
@@ -1356,10 +1357,10 @@ export default class GameScene extends Phaser.Scene {
         if (this.gameIsOver || this.menuOpen) return;
         if (this.time.now < (this.feedCd || 0)) return;   // small cooldown — no spamming
         if (Phaser.Math.Distance.Between(this.player.x, this.player.y, FIRE.x, FIRE.y) > FEED_RANGE) {
-            this.sfx.deny(); this.floatText(this.player.x, this.player.y - 30, 'For langt fra bålet', '#ff6b6b'); return;
+            this.sfx.deny(); this.floatText(this.player.x, this.player.y - 30, t('fx.tooFar'), '#ff6b6b'); return;
         }
-        if (this.wood < FEED_COST) { this.sfx.deny(); this.floatText(FIRE.x, FIRE.y - 40, 'Mangler ved!', '#ff6b6b'); return; }
-        if (this.fuel >= this.fuelMax) { this.floatText(FIRE.x, FIRE.y - 40, 'Bålet er fullt', '#cfe3d4'); return; }
+        if (this.wood < FEED_COST) { this.sfx.deny(); this.floatText(FIRE.x, FIRE.y - 40, t('fx.needWood'), '#ff6b6b'); return; }
+        if (this.fuel >= this.fuelMax) { this.floatText(FIRE.x, FIRE.y - 40, t('fx.fireFull'), '#cfe3d4'); return; }
         this.feedCd = this.time.now + FEED_CD;
         this.wood -= FEED_COST;
         this.stats.woodSpent += FEED_COST;
@@ -1374,21 +1375,21 @@ export default class GameScene extends Phaser.Scene {
     // ---------------------------------------------------------------- upgrades
     upgradePool() {
         return [
-            { key: 'axe', icon: '🪓', name: 'Skarpere øks', desc: '+6 skade', apply: () => { this.axeDmg += 6; } },
-            { key: 'boots', icon: '👢', name: 'Raske støvler', desc: '+22 fart', apply: () => { this.moveSpeed += 22; } },
-            { key: 'vit', icon: '❤️', name: 'Vitalitet', desc: '+30 maks liv & full heal', apply: () => { this.maxHp += 30; this.hp = this.maxHp; } },
-            { key: 'fire', icon: '🔥', name: 'Større bål', desc: '+40 brensel (fylles opp)', apply: () => { this.fuelMax += 40; this.fuel = Math.min(this.fuelMax, this.fuel + 40); } },
-            { key: 'reach', icon: '🌀', name: 'Lang rekkevidde', desc: '+18 sving-rekkevidde', apply: () => { this.swingRange += 18; } },
-            { key: 'swift', icon: '⚡', name: 'Hurtige hugg', desc: 'Sving raskere', apply: () => { this.swingDelay = Math.max(120, this.swingDelay - 50); }, maxed: () => this.swingDelay <= 120 },
-            { key: 'lumber', icon: '🪵', name: 'Effektiv hugger', desc: '+2 ved per tre', apply: () => { this.treeBonus += 2; } },
-            { key: 'hunter', icon: '🩸', name: 'Rovdyr', desc: '+3 ved per drepte fiende', apply: () => { this.killWood += 3; } },
-            { key: 'ember', icon: '🛡️', name: 'Bålmester', desc: '-25% brenselforbruk', apply: () => { this.fuelDrainMult *= 0.75; } },
-            { key: 'regen', icon: '💚', name: 'Helbredende ild', desc: 'Heal nå + 15 liv hvert daggry', apply: () => { this.dawnHeal += 15; this.hp = Math.min(this.maxHp, this.hp + 30); } },
-            { key: 'crit', icon: '🎯', name: 'Kritisk treff', desc: '+10% kritisk sjanse', apply: () => { this.critChance = Math.min(1, this.critChance + 0.10); }, maxed: () => this.critChance >= 1 },
-            { key: 'critdmg', icon: '💥', name: 'Dødelig hugg', desc: '+50% kritisk skade', apply: () => { this.critMult += 0.5; } },
-            { key: 'knock', icon: '🥊', name: 'Kraftig slag', desc: '+12 tilbakeslag på fiender', apply: () => { this.knockback += 12; } },
-            { key: 'armor', icon: '🦺', name: 'Kroppsrustning', desc: '+4 rustning (mindre skade per treff)', apply: () => { this.armor += 4; } },
-            { key: 'helm', icon: '⛑️', name: 'Hjelm', desc: '+3 hoderustning (mindre skade per treff)', apply: () => { this.headArmor += 3; } }
+            { key: 'axe', icon: '🪓', name: t('upg.axe.name'), desc: t('upg.axe.desc'), apply: () => { this.axeDmg += 6; } },
+            { key: 'boots', icon: '👢', name: t('upg.boots.name'), desc: t('upg.boots.desc'), apply: () => { this.moveSpeed += 22; } },
+            { key: 'vit', icon: '❤️', name: t('upg.vit.name'), desc: t('upg.vit.desc'), apply: () => { this.maxHp += 30; this.hp = this.maxHp; } },
+            { key: 'fire', icon: '🔥', name: t('upg.fire.name'), desc: t('upg.fire.desc'), apply: () => { this.fuelMax += 40; this.fuel = Math.min(this.fuelMax, this.fuel + 40); } },
+            { key: 'reach', icon: '🌀', name: t('upg.reach.name'), desc: t('upg.reach.desc'), apply: () => { this.swingRange += 18; } },
+            { key: 'swift', icon: '⚡', name: t('upg.swift.name'), desc: t('upg.swift.desc'), apply: () => { this.swingDelay = Math.max(120, this.swingDelay - 50); }, maxed: () => this.swingDelay <= 120 },
+            { key: 'lumber', icon: '🪵', name: t('upg.lumber.name'), desc: t('upg.lumber.desc'), apply: () => { this.treeBonus += 2; } },
+            { key: 'hunter', icon: '🩸', name: t('upg.hunter.name'), desc: t('upg.hunter.desc'), apply: () => { this.killWood += 3; } },
+            { key: 'ember', icon: '🛡️', name: t('upg.ember.name'), desc: t('upg.ember.desc'), apply: () => { this.fuelDrainMult *= 0.75; } },
+            { key: 'regen', icon: '💚', name: t('upg.regen.name'), desc: t('upg.regen.desc'), apply: () => { this.dawnHeal += 15; this.hp = Math.min(this.maxHp, this.hp + 30); } },
+            { key: 'crit', icon: '🎯', name: t('upg.crit.name'), desc: t('upg.crit.desc'), apply: () => { this.critChance = Math.min(1, this.critChance + 0.10); }, maxed: () => this.critChance >= 1 },
+            { key: 'critdmg', icon: '💥', name: t('upg.critdmg.name'), desc: t('upg.critdmg.desc'), apply: () => { this.critMult += 0.5; } },
+            { key: 'knock', icon: '🥊', name: t('upg.knock.name'), desc: t('upg.knock.desc'), apply: () => { this.knockback += 12; } },
+            { key: 'armor', icon: '🦺', name: t('upg.armor.name'), desc: t('upg.armor.desc'), apply: () => { this.armor += 4; } },
+            { key: 'helm', icon: '⛑️', name: t('upg.helm.name'), desc: t('upg.helm.desc'), apply: () => { this.headArmor += 3; } }
         ];
     }
 
@@ -1440,10 +1441,10 @@ export default class GameScene extends Phaser.Scene {
             };
             const p = this.char;
 
-            C.add(this.add.text(W / 2, 30, '⏸ PAUSE', {
+            C.add(this.add.text(W / 2, 30, t('pause.title'), {
                 fontSize: '28px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
             }).setOrigin(0.5));
-            C.add(this.add.text(W / 2, 60, `${p.name} · Natt ${this.wave} · ${this.score} p`, {
+            C.add(this.add.text(W / 2, 60, t('pause.charLine', { name: p.name, n: this.wave, score: this.score }), {
                 fontSize: '13px', fontFamily: 'Arial', color: '#cfe3d4'
             }).setOrigin(0.5));
 
@@ -1456,19 +1457,19 @@ export default class GameScene extends Phaser.Scene {
 
             // --- current effective stats (two columns, with drawn icons) ---
             const stats = [
-                ['axe', 'Skade', `${this.axeDmg}`],
-                ['crit', 'Krit', `${Math.round(this.critChance * 100)}% ×${this.critMult.toFixed(1)}`],
-                ['vit', 'Maks liv', `${this.maxHp}`],
-                ['armor', 'Rustning', `${this.armor}`],
-                ['helm', 'Hjelm', `${this.headArmor}`],
-                ['boots', 'Fart', `${Math.round(this.moveSpeed)}`],
-                ['swift', 'Sving', `${this.swingDelay}ms${this.swingDelay <= 120 ? ' (maks)' : ''}`],
-                ['reach', 'Rekkevidde', `${this.swingRange}`],
-                ['knock', 'Tilbakeslag', `${this.knockback}`],
-                ['fire', 'Bål', `${this.fuelMax}`],
-                ['ember', 'Bålvern', `${Math.round((1 - this.fuelDrainMult) * 100)}%`],
-                ['lumber', 'Ved/tre', `${3 + this.treeBonus + this.buildCounts.sagbruk}`],
-                ['hunter', 'Ved/drep', `${this.killWood}`]
+                ['axe', t('stat.damage'), `${this.axeDmg}`],
+                ['crit', t('stat.crit'), `${Math.round(this.critChance * 100)}% ×${this.critMult.toFixed(1)}`],
+                ['vit', t('stat.maxhp'), `${this.maxHp}`],
+                ['armor', t('stat.armor'), `${this.armor}`],
+                ['helm', t('stat.helm'), `${this.headArmor}`],
+                ['boots', t('stat.speed'), `${Math.round(this.moveSpeed)}`],
+                ['swift', t('stat.swing'), `${this.swingDelay}ms${this.swingDelay <= 120 ? ' ' + t('stat.max') : ''}`],
+                ['reach', t('stat.range'), `${this.swingRange}`],
+                ['knock', t('stat.knock'), `${this.knockback}`],
+                ['fire', t('stat.fire'), `${this.fuelMax}`],
+                ['ember', t('stat.firedef'), `${Math.round((1 - this.fuelDrainMult) * 100)}%`],
+                ['lumber', t('stat.woodtree'), `${3 + this.treeBonus + this.buildCounts.sagbruk}`],
+                ['hunter', t('stat.woodkill'), `${this.killWood}`]
             ];
             const colX = [22, W / 2 + 8];
             const sY = 86, rowH = 21;
@@ -1493,33 +1494,33 @@ export default class GameScene extends Phaser.Scene {
 
             // --- in-run upgrades chosen ---
             const chosen = Object.entries(this.upgLevels).filter(([, v]) => v > 0);
-            add(22, y, 'Valgte forsterkninger', { fontSize: '14px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166' });
+            add(22, y, t('pause.chosen'), { fontSize: '14px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166' });
             y += 22;
             if (chosen.length) iconFlow(chosen, '#ffd166');
-            else y = add(22, y, 'Ingen valgt ennå', { fontSize: '13px', fontFamily: 'Arial', color: '#9fb08a' }).getBottomLeft().y + 8;
+            else y = add(22, y, t('pause.noneChosen'), { fontSize: '13px', fontFamily: 'Arial', color: '#9fb08a' }).getBottomLeft().y + 8;
 
             // --- permanent perks ---
             const perks = PERKS.filter(pk => (p.perks[pk.key] || 0) > 0);
-            add(22, y, 'Permanente perks', { fontSize: '14px', fontFamily: 'Arial', fontStyle: 'bold', color: '#9fd0ff' });
+            add(22, y, t('pause.perks'), { fontSize: '14px', fontFamily: 'Arial', fontStyle: 'bold', color: '#9fd0ff' });
             y += 22;
             if (perks.length) iconFlow(perks.map(pk => [PERK_ICON[pk.key] || 'axe', p.perks[pk.key]]), '#9fd0ff');
-            else y = add(22, y, 'Ingen ennå', { fontSize: '13px', fontFamily: 'Arial', color: '#9fb08a' }).getBottomLeft().y + 8;
+            else y = add(22, y, t('pause.none'), { fontSize: '13px', fontFamily: 'Arial', color: '#9fb08a' }).getBottomLeft().y + 8;
 
             // --- damage graph: player vs towers, per night ---
-            add(22, y, 'Skade per natt', { fontSize: '14px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166' });
+            add(22, y, t('pause.dmgPerNight'), { fontSize: '14px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166' });
             C.add(this.add.rectangle(W - 118, y + 8, 9, 9, 0x5b9cff));
-            add(W - 110, y, 'du', { fontSize: '11px', fontFamily: 'Arial', color: '#cfe3d4' });
+            add(W - 110, y, t('pause.you'), { fontSize: '11px', fontFamily: 'Arial', color: '#cfe3d4' });
             C.add(this.add.rectangle(W - 76, y + 8, 9, 9, 0xff9e2c));
-            add(W - 68, y, 'tårn', { fontSize: '11px', fontFamily: 'Arial', color: '#cfe3d4' });
+            add(W - 68, y, t('pause.towers'), { fontSize: '11px', fontFamily: 'Arial', color: '#cfe3d4' });
             y += 20;
             this.drawDamageGraph(C, 22, y, W - 44, (H - 168) - y);
 
             // --- buttons anchored at the bottom ---
-            this.pauseBtnAt(H - 152, '▶  FORTSETT', 0xc1440e, () => this.closePause());
-            this.pauseBtnAt(H - 98, '↻  START PÅ NYTT', 0x2a6b3a,
-                () => this.confirmPause('Starte runden på nytt?\nFremgangen i denne runden går tapt.', () => this.scene.restart()));
-            this.pauseBtnAt(H - 44, '🏠  HOVEDMENY', 0x3a4049,
-                () => this.confirmPause('Gå til hovedmenyen?\nDenne runden går tapt (rekorder lagres bare ved tap).', () => this.scene.start('MenuScene')));
+            this.pauseBtnAt(H - 152, t('pause.resume'), 0xc1440e, () => this.closePause());
+            this.pauseBtnAt(H - 98, t('pause.restart'), 0x2a6b3a,
+                () => this.confirmPause(t('pause.confirmRestart'), () => this.scene.restart()));
+            this.pauseBtnAt(H - 44, t('pause.menu'), 0x3a4049,
+                () => this.confirmPause(t('pause.confirmMenu'), () => this.scene.start('MenuScene')));
         });
     }
 
@@ -1531,7 +1532,7 @@ export default class GameScene extends Phaser.Scene {
             if (this.dmgByNight[w]) data.push({ n: w, ...this.dmgByNight[w] });
         }
         if (!data.length) {
-            C.add(this.add.text(gx, gy, 'Ingen kampdata ennå', { fontSize: '12px', fontFamily: 'Arial', color: '#9fb08a' }).setOrigin(0, 0));
+            C.add(this.add.text(gx, gy, t('pause.noCombat'), { fontSize: '12px', fontFamily: 'Arial', color: '#9fb08a' }).setOrigin(0, 0));
             return;
         }
         const shown = data.slice(-12);
@@ -1554,20 +1555,20 @@ export default class GameScene extends Phaser.Scene {
             }
         });
         // peak value label
-        C.add(this.add.text(gx + gw, gy - 1, `topp ${Math.round(maxV)}`, { fontSize: '10px', fontFamily: 'Arial', color: '#8fa0aa' }).setOrigin(1, 0));
+        C.add(this.add.text(gx + gw, gy - 1, t('pause.peak', { v: Math.round(maxV) }), { fontSize: '10px', fontFamily: 'Arial', color: '#8fa0aa' }).setOrigin(1, 0));
     }
 
     confirmPause(message, onYes) {
         this.pausePanel(() => {
-            this.pauseC.add(this.add.text(W / 2, H / 2 - 110, '⚠ ER DU SIKKER?', {
+            this.pauseC.add(this.add.text(W / 2, H / 2 - 110, t('pause.sure'), {
                 fontSize: '24px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ff8c42'
             }).setOrigin(0.5));
             this.pauseC.add(this.add.text(W / 2, H / 2 - 60, message, {
                 fontSize: '15px', fontFamily: 'Arial', color: '#cfe3d4', align: 'center', lineSpacing: 6,
                 wordWrap: { width: W - 60 }
             }).setOrigin(0.5));
-            this.pauseButton(20, 'JA', 0x7a2a22, onYes);
-            this.pauseButton(86, 'AVBRYT', 0x3a4049, () => this.buildPauseMenu());
+            this.pauseButton(20, t('pause.yes'), 0x7a2a22, onYes);
+            this.pauseButton(86, t('pause.cancel'), 0x3a4049, () => this.buildPauseMenu());
         });
     }
 
@@ -1594,7 +1595,7 @@ export default class GameScene extends Phaser.Scene {
         c.add(title);
         this.tweens.add({ targets: title, scale: 1, alpha: 1, duration: 320, ease: 'Back.out' });
 
-        const hint = this.add.text(W / 2, 150, 'Velg én forsterkning', {
+        const hint = this.add.text(W / 2, 150, t('upg.choose'), {
             fontSize: '15px', fontFamily: 'Arial', color: '#cfe3d4'
         }).setOrigin(0.5).setAlpha(0);
         c.add(hint);
@@ -1647,14 +1648,14 @@ export default class GameScene extends Phaser.Scene {
     // ---------------------------------------------------------------- shop / building
     shopItems() {
         return [
-            { key: 'gjerde', icon: '🚧', name: 'Gjerde', desc: 'Permanent palisade — repareres hver natt', base: 60, max: 24 },
-            { key: 'taarn', icon: '🗼', name: 'Vakttårn', desc: 'Skyter automatisk på fiender', base: 28, max: 16 },
-            { key: 'iskanon', icon: '🧊', name: 'Iskanon', desc: 'Fryser fiender så de går saktere', base: 40, max: 12 },
-            { key: 'bombekaster', icon: '💣', name: 'Bombekaster', desc: 'Splintskade på klynger av fiender', base: 52, max: 12 },
-            { key: 'lyntaarn', icon: '⚡', name: 'Lyntårn', desc: 'Lyn som hopper mellom flere fiender (3 i nivå 1)', base: 46, max: 10 },
-            { key: 'piggfelle', icon: '🪤', name: 'Piggfelle', desc: 'Skader og sinker fiender i sonen', base: 18, max: 14 },
-            { key: 'hus', icon: '🏠', name: 'Hytte', desc: 'Heler deg når du står i nærheten (+3 liv/5s)', base: 38, max: 4 },
-            { key: 'sagbruk', icon: '🪚', name: 'Sagbruk', desc: '+1 ved per tre & raskere gjenvekst', base: 30, max: 4 }
+            { key: 'gjerde', icon: '🚧', name: t('st.gjerde.name'), desc: t('st.gjerde.desc'), base: 60, max: 24 },
+            { key: 'taarn', icon: '🗼', name: t('st.taarn.name'), desc: t('st.taarn.desc'), base: 28, max: 16 },
+            { key: 'iskanon', icon: '🧊', name: t('st.iskanon.name'), desc: t('st.iskanon.desc'), base: 40, max: 12 },
+            { key: 'bombekaster', icon: '💣', name: t('st.bombekaster.name'), desc: t('st.bombekaster.desc'), base: 52, max: 12 },
+            { key: 'lyntaarn', icon: '⚡', name: t('st.lyntaarn.name'), desc: t('st.lyntaarn.desc'), base: 46, max: 10 },
+            { key: 'piggfelle', icon: '🪤', name: t('st.piggfelle.name'), desc: t('st.piggfelle.desc'), base: 18, max: 14 },
+            { key: 'hus', icon: '🏠', name: t('st.hus.name'), desc: t('st.hus.desc'), base: 38, max: 4 },
+            { key: 'sagbruk', icon: '🪚', name: t('st.sagbruk.name'), desc: t('st.sagbruk.desc'), base: 30, max: 4 }
         ];
     }
 
@@ -1665,7 +1666,7 @@ export default class GameScene extends Phaser.Scene {
 
     openShop() {
         if (this.menuOpen || this.gameIsOver) return;
-        if (this.phase !== 'day') { this.floatText(this.player.x, this.player.y - 30, 'Bygg på dagtid', '#ff6b6b'); this.sfx.deny(); return; }
+        if (this.phase !== 'day') { this.floatText(this.player.x, this.player.y - 30, t('fx.buildDaytime'), '#ff6b6b'); this.sfx.deny(); return; }
         this.menuOpen = true;
         this.swingHeld = false;
         this.shopArmed = false;          // ignore buys until the panel settles
@@ -1682,10 +1683,10 @@ export default class GameScene extends Phaser.Scene {
         this.shopContainer = c;
 
         c.add(this.add.rectangle(0, 0, W, H, 0x05080d, 0.85).setOrigin(0).setInteractive());
-        c.add(this.add.text(W / 2, 70, '🛒 BYGGEBUTIKK', {
+        c.add(this.add.text(W / 2, 70, t('shop.title'), {
             fontSize: '26px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
         }).setOrigin(0.5));
-        c.add(this.add.text(W / 2, 102, `Du har 🪵 ${this.wood}`, {
+        c.add(this.add.text(W / 2, 102, t('shop.have', { n: this.wood }), {
             fontSize: '16px', fontFamily: 'Arial', color: '#ffffff'
         }).setOrigin(0.5));
 
@@ -1719,7 +1720,7 @@ export default class GameScene extends Phaser.Scene {
             c.add(this.add.text(68, y + 9, it.desc, {
                 fontSize: '11px', fontFamily: 'Arial', color: '#bcd0c0', wordWrap: { width: 240 }
             }).setOrigin(0, 0.5));
-            c.add(this.add.text(W / 2 + 158, y, full ? 'FULLT' : `🪵 ${cost}`, {
+            c.add(this.add.text(W / 2 + 158, y, full ? t('shop.full') : `🪵 ${cost}`, {
                 fontSize: '15px', fontFamily: 'Arial', fontStyle: 'bold',
                 color: full ? '#888' : (afford ? '#ffd166' : '#ff6b6b')
             }).setOrigin(1, 0.5));
@@ -1729,7 +1730,7 @@ export default class GameScene extends Phaser.Scene {
         const close = this.add.rectangle(W / 2, H - 52, 220, 52, 0xc1440e)
             .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
         c.add(close);
-        c.add(this.add.text(W / 2, H - 52, 'FERDIG', {
+        c.add(this.add.text(W / 2, H - 52, t('shop.done'), {
             fontSize: '22px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
         }).setOrigin(0.5));
         close.on('pointerup', () => { c.destroy(); this.shopContainer = null; this.menuOpen = false; });
@@ -1740,7 +1741,7 @@ export default class GameScene extends Phaser.Scene {
         if (!this.shopArmed) return;     // panel still animating in
         if (this.buildCounts[item.key] >= item.max) { this.sfx.deny(); return; }
         if (this.wood < this.shopCost(item)) {
-            this.sfx.deny(); this.floatText(W / 2, 130, 'For lite ved!', '#ff6b6b'); return;
+            this.sfx.deny(); this.floatText(W / 2, 130, t('fx.tooLittleWood'), '#ff6b6b'); return;
         }
         // tear down the shop panel; keep the world paused via menuOpen
         if (this.shopContainer) { this.shopContainer.destroy(); this.shopContainer = null; }
@@ -1775,7 +1776,7 @@ export default class GameScene extends Phaser.Scene {
         const ghost = this.add.image(start.x, start.y, tex).setAlpha(0.65);
         c.add(ring); c.add(cell); c.add(ghost);
 
-        c.add(this.add.text(W / 2, PLAY_TOP + 14, 'Trykk en rute, så «Bygg her»', {
+        c.add(this.add.text(W / 2, PLAY_TOP + 14, t('build.placeHint'), {
             fontSize: '15px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166',
             backgroundColor: '#0008', padding: { x: 8, y: 4 }
         }).setOrigin(0.5));
@@ -1783,12 +1784,12 @@ export default class GameScene extends Phaser.Scene {
         // two-step: tap a cell to pick it (finger lifts → you can see it), then confirm
         const buildBtn = this.add.rectangle(W / 2, H - 106, 240, 52, 0x2a6b3a)
             .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
-        const buildTxt = this.add.text(W / 2, H - 106, '✓ BYGG HER', {
+        const buildTxt = this.add.text(W / 2, H - 106, t('build.buildHere'), {
             fontSize: '20px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
         }).setOrigin(0.5);
         const doneBtn = this.add.rectangle(W / 2, H - 50, 240, 48, 0xc1440e)
             .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
-        const doneTxt = this.add.text(W / 2, H - 50, 'FERDIG', {
+        const doneTxt = this.add.text(W / 2, H - 50, t('shop.done'), {
             fontSize: '19px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
         }).setOrigin(0.5);
         c.add(buildBtn); c.add(buildTxt); c.add(doneBtn); c.add(doneTxt);
@@ -1810,7 +1811,7 @@ export default class GameScene extends Phaser.Scene {
         layer.on('pointerup', move);
 
         buildBtn.on('pointerup', () => {
-            if (!sel.ok) { this.sfx.deny(); this.floatText(sel.x, sel.y - 20, 'Ugyldig rute', '#ff6b6b'); return; }
+            if (!sel.ok) { this.sfx.deny(); this.floatText(sel.x, sel.y - 20, t('fx.invalidCell'), '#ff6b6b'); return; }
             this.tryPlace(sel.x, sel.y);
             if (this.placing) move(this.suggestCell());   // jump to the next free spread-out cell
         });
@@ -1822,8 +1823,8 @@ export default class GameScene extends Phaser.Scene {
         if (!item) return;
         const cost = this.shopCost(item);
         if (this.buildCounts[item.key] >= item.max) { this.sfx.deny(); this.endPlacement(); return; }
-        if (this.wood < cost) { this.sfx.deny(); this.floatText(x, y - 20, 'For lite ved!', '#ff6b6b'); return; }
-        if (!this.placeValid(x, y)) { this.sfx.deny(); this.floatText(x, y - 20, 'Blokkert!', '#ff6b6b'); return; }
+        if (this.wood < cost) { this.sfx.deny(); this.floatText(x, y - 20, t('fx.tooLittleWood'), '#ff6b6b'); return; }
+        if (!this.placeValid(x, y)) { this.sfx.deny(); this.floatText(x, y - 20, t('fx.blocked'), '#ff6b6b'); return; }
 
         this.wood -= cost;
         this.stats.woodSpent += cost;
@@ -1941,29 +1942,29 @@ export default class GameScene extends Phaser.Scene {
         const maxed = lvl >= MAX_LVL;
         const cost = this.upgradeCost(s);
 
-        const name = { gjerde: 'Gjerde', taarn: 'Vakttårn', iskanon: 'Iskanon', bombekaster: 'Bombekaster', lyntaarn: 'Lyntårn', piggfelle: 'Piggfelle', hus: 'Hytte' }[s.type];
-        c.add(this.add.text(W / 2, H / 2 - 120, `${name} · nivå ${lvl}`, {
+        const name = { gjerde: t('st.gjerde.name'), taarn: t('st.taarn.name'), iskanon: t('st.iskanon.name'), bombekaster: t('st.bombekaster.name'), lyntaarn: t('st.lyntaarn.name'), piggfelle: t('st.piggfelle.name'), hus: t('st.hus.name') }[s.type];
+        c.add(this.add.text(W / 2, H / 2 - 120, t('up.level', { name, lvl }), {
             fontSize: '24px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
         }).setOrigin(0.5));
 
         let statLine;
         if (isFence) {
             statLine = maxed
-                ? `Maks HP ${s.maxHp} (nå ${Math.ceil(Math.max(0, s.hp))})`
-                : `Maks HP ${s.maxHp} → ${this.fenceHp(lvl + 1)}\nRepareres helt ved oppgradering`;
+                ? t('up.fenceMaxed', { hp: s.maxHp, cur: Math.ceil(Math.max(0, s.hp)) })
+                : t('up.fenceNext', { hp: s.maxHp, next: this.fenceHp(lvl + 1) });
         } else if (isHut) {
             statLine = maxed
-                ? `Heling ${this.hutHealPer5s(lvl)} liv/5s · radius ${this.hutRadius(lvl)}`
-                : `Heling ${this.hutHealPer5s(lvl)} → ${this.hutHealPer5s(lvl + 1)} liv/5s\nRadius ${this.hutRadius(lvl)} → ${this.hutRadius(lvl + 1)}`;
+                ? t('up.hutMaxed', { heal: this.hutHealPer5s(lvl), r: this.hutRadius(lvl) })
+                : t('up.hutNext', { heal: this.hutHealPer5s(lvl), nheal: this.hutHealPer5s(lvl + 1), r: this.hutRadius(lvl), nr: this.hutRadius(lvl + 1) });
         } else {
             const cur = this.structStats(s);
             const next = maxed ? cur : this.structStats({ type: s.type, lvl: lvl + 1 });
             const chainLine = cur.chain
-                ? (maxed ? `\nLyn-hopp ${cur.chain}` : `\nLyn-hopp ${cur.chain} → ${next.chain}`)
+                ? (maxed ? t('up.chainMaxed', { chain: cur.chain }) : t('up.chainNext', { chain: cur.chain, nchain: next.chain }))
                 : '';
             statLine = (maxed
-                ? `Skade ${cur.dmg} · rekkevidde ${cur.range}`
-                : `Skade ${cur.dmg} → ${next.dmg}\nRekkevidde ${cur.range} → ${next.range}\nFyringsrate ${cur.cd} → ${next.cd} ms`) + chainLine;
+                ? t('up.statMaxed', { dmg: cur.dmg, range: cur.range })
+                : t('up.statNext', { dmg: cur.dmg, ndmg: next.dmg, range: cur.range, nrange: next.range, cd: cur.cd, ncd: next.cd })) + chainLine;
         }
         c.add(this.add.text(W / 2, H / 2 - 46, statLine, {
             fontSize: '15px', fontFamily: 'Arial', color: '#cfe3d4', align: 'center', lineSpacing: 6
@@ -1972,14 +1973,14 @@ export default class GameScene extends Phaser.Scene {
         const upBtn = this.add.rectangle(W / 2, H / 2 + 40, 260, 56, maxed ? 0x3a4049 : 0x2a6b3a)
             .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
         c.add(upBtn);
-        c.add(this.add.text(W / 2, H / 2 + 40, maxed ? 'MAKS NIVÅ' : `OPPGRADER · 🪵 ${cost}`, {
+        c.add(this.add.text(W / 2, H / 2 + 40, maxed ? t('up.maxed') : t('up.upgrade', { cost }), {
             fontSize: '19px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
         }).setOrigin(0.5));
 
         const closeUp = () => { c.destroy(); this.menuOpen = false; };
         upBtn.on('pointerup', () => {
             if (maxed) return;
-            if (this.wood < cost) { this.sfx.deny(); this.floatText(W / 2, H / 2 + 80, 'For lite ved!', '#ff6b6b'); return; }
+            if (this.wood < cost) { this.sfx.deny(); this.floatText(W / 2, H / 2 + 80, t('fx.tooLittleWood'), '#ff6b6b'); return; }
             this.wood -= cost; this.stats.woodSpent += cost; s.lvl++;
             s.woodSpent = (s.woodSpent || 0) + cost;   // count upgrades toward the refund value
             if (isFence) { s.maxHp = this.fenceHp(s.lvl); s.hp = s.maxHp; s.setAlpha(1); }   // forsterk + reparer
@@ -1996,7 +1997,7 @@ export default class GameScene extends Phaser.Scene {
         const demo = this.add.rectangle(W / 2, H / 2 + 108, 260, 46, 0x7a3a18)
             .setStrokeStyle(3, 0xffb066).setInteractive({ useHandCursor: true });
         c.add(demo);
-        c.add(this.add.text(W / 2, H / 2 + 108, `DEMONTER · +🪵 ${refund}`, {
+        c.add(this.add.text(W / 2, H / 2 + 108, t('up.dismantle', { refund }), {
             fontSize: '17px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
         }).setOrigin(0.5));
         demo.on('pointerup', () => {
@@ -2010,7 +2011,7 @@ export default class GameScene extends Phaser.Scene {
         const cancel = this.add.rectangle(W / 2, H / 2 + 162, 260, 44, 0xc1440e)
             .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
         c.add(cancel);
-        c.add(this.add.text(W / 2, H / 2 + 162, 'LUKK', {
+        c.add(this.add.text(W / 2, H / 2 + 162, t('up.close'), {
             fontSize: '17px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
         }).setOrigin(0.5));
         cancel.on('pointerup', closeUp);
@@ -2194,7 +2195,7 @@ export default class GameScene extends Phaser.Scene {
         this.phaseEnd = this.time.now + dur * 1000;
         this.phaseDuration = dur;
         this.sfx.nightStart();
-        this.banner(`🌙  NATT ${n}\nOverlev til daggry!`, 0x8ea0ff);
+        this.banner(t('phase.night', { n }), 0x8ea0ff);
 
         this.nightTotal = 4 + Math.round((n - 1) * 2.5);
         this.nightSpawned = 0;
@@ -2215,7 +2216,7 @@ export default class GameScene extends Phaser.Scene {
         this.nightTotal = 1; this.nightSpawned = 0; this.nightEnding = false;
         this.spawnTimer = null;
         this.sfx.nightStart();
-        this.banner('☠  SLUTTBOSS — NATT 50', 0xff3b3b);
+        this.banner(t('boss.banner'), 0xff3b3b);
         this.time.delayedCall(1100, () => { if (this.phase === 'night' && !this.gameIsOver) this.spawnBoss(); });
     }
 
@@ -2261,7 +2262,7 @@ export default class GameScene extends Phaser.Scene {
         const barY = PLAY_TOP + 8, barW = W - 40;
         e.hpBarBg = this.add.rectangle(20, barY, barW, 14, 0x3a0d14).setOrigin(0, 0.5).setDepth(2600).setScrollFactor(0);
         e.hpBar = this.add.rectangle(20, barY, barW, 14, 0xff3b4d).setOrigin(0, 0.5).setDepth(2601).setScrollFactor(0);
-        e.hpLabel = this.add.text(W / 2, barY, '☠ SLUTTBOSS', {
+        e.hpLabel = this.add.text(W / 2, barY, t('boss.label'), {
             fontSize: '12px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff', stroke: '#000', strokeThickness: 3
         }).setOrigin(0.5).setDepth(2602).setScrollFactor(0);
     }
@@ -2309,7 +2310,7 @@ export default class GameScene extends Phaser.Scene {
                 e.gnawCd = time + 600;
                 this.fuel = Math.max(0, this.fuel - 8);
                 this.burst(FIRE.x, FIRE.y, 'ember', 5);
-                if (this.fuel <= 0) { this.gameOver('Bålet slukna i mørket'); return; }
+                if (this.fuel <= 0) { this.gameOver(t('lose.fireOut')); return; }
             }
         }
 
@@ -2346,7 +2347,7 @@ export default class GameScene extends Phaser.Scene {
         if (this.dawnHeal > 0) this.hp = Math.min(this.maxHp, this.hp + this.dawnHeal);
         this.sfx.dayStart();
         // reward: choose one of three random upgrades
-        this.offerUpgrades(`☀  Natt ${survived} overlevd!`);
+        this.offerUpgrades(t('phase.survived', { n: survived }));
     }
 
     spawnEnemy() {
@@ -2494,7 +2495,7 @@ export default class GameScene extends Phaser.Scene {
             this.player.setTintFill(0xff7a2b);
             this.time.delayedCall(120, () => { if (this.player.active) this.player.clearTint(); });
             this.floatText(this.player.x, this.player.y - 28, '🔥', '#ff7a2b');
-            if (this.hp <= 0) { this.gameOver('Du brant opp i bålet'); return; }
+            if (this.hp <= 0) { this.gameOver(t('lose.burned')); return; }
             this.updateHUD();
         }
 
@@ -2502,14 +2503,14 @@ export default class GameScene extends Phaser.Scene {
         if (this.phase === 'night') {
             const drain = (1.1 + (this.wave - 1) * 0.45) * this.fuelDrainMult;
             this.fuel = Math.max(0, this.fuel - drain * dt);
-            if (this.fuel <= 0) { this.gameOver('Bålet slukna i mørket'); return; }
+            if (this.fuel <= 0) { this.gameOver(t('lose.fireOut')); return; }
 
             // dawn comes early once the whole wave is cleared — no dead air at the
             // end of the night waiting for a timer with nothing left to fight
             if (!this.nightEnding && this.nightSpawned >= this.nightTotal && this.enemies.length === 0) {
                 this.nightEnding = true;
                 if (this.spawnTimer) { this.spawnTimer.remove(); this.spawnTimer = null; }
-                this.banner('☀  NATTA ER KLARERT!', 0xffd166);
+                this.banner(t('phase.cleared'), 0xffd166);
                 this.time.delayedCall(900, () => { if (this.phase === 'night') this.startDay(); });
             }
         }
@@ -2709,7 +2710,7 @@ export default class GameScene extends Phaser.Scene {
         this.player.setTintFill(0xff5050);
         this.time.delayedCall(120, () => { if (this.player.active) this.player.clearTint(); });
         this.updateHUD();
-        if (this.hp <= 0) this.gameOver('Du falt i mørket');
+        if (this.hp <= 0) this.gameOver(t('lose.fell'));
     }
 
     // ---------------------------------------------------------------- ui helpers
@@ -2721,11 +2722,11 @@ export default class GameScene extends Phaser.Scene {
         if (remain !== undefined) {
             const day = this.phase === 'day';
             if (day) {
-                this.phaseText.setText(`☀ Dag ${this.wave} · ${remain}s`).setColor('#ffd166');
-                this.hintText.setText('Hugg ved • 🛒 bygg');
+                this.phaseText.setText(t('hud.day', { n: this.wave, s: remain })).setColor('#ffd166');
+                this.hintText.setText(t('hud.hintDay'));
             } else {
-                this.phaseText.setText(`🌙 Natt ${this.wave} · ${remain}s`).setColor('#9fb0ff');
-                this.hintText.setText('Mat bålet • slåss');
+                this.phaseText.setText(t('hud.night', { n: this.wave, s: remain })).setColor('#9fb0ff');
+                this.hintText.setText(t('hud.hintNight'));
             }
             if (this.shopBtn.visible !== day) {
                 this.shopBtn.setVisible(day);
@@ -2825,7 +2826,7 @@ export default class GameScene extends Phaser.Scene {
         c.add(this.add.rectangle(0, 0, W, H, 0x12060a, 0).setOrigin(0));
         this.tweens.add({ targets: c.list[0], alpha: 0.78, duration: 600 });
 
-        const big = this.add.text(W / 2, H / 2 - 30, 'GAME OVER', {
+        const big = this.add.text(W / 2, H / 2 - 30, t('over.title'), {
             fontSize: '54px', fontFamily: 'Arial', fontStyle: 'bold',
             color: '#ff4040', stroke: '#000000', strokeThickness: 6
         }).setOrigin(0.5).setScale(2.4).setAlpha(0);
@@ -2854,10 +2855,10 @@ export default class GameScene extends Phaser.Scene {
 
         const c = this.add.container(0, 0).setDepth(5200);
         c.add(this.add.rectangle(0, 0, W, H, 0x05080d, 0.9).setOrigin(0).setInteractive());
-        c.add(this.add.text(W / 2, 120, `🏆 MILEPÆL ${index}/${total}`, {
+        c.add(this.add.text(W / 2, 120, t('ms.title', { i: index, total }), {
             fontSize: '28px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffd166'
         }).setOrigin(0.5));
-        c.add(this.add.text(W / 2, 158, `Du nådde natt ${milestoneNight}\nVelg en permanent forsterkning`, {
+        c.add(this.add.text(W / 2, 158, t('ms.sub', { night: milestoneNight }), {
             fontSize: '15px', fontFamily: 'Arial', color: '#cfe3d4', align: 'center', lineSpacing: 6
         }).setOrigin(0.5));
 
@@ -2869,11 +2870,11 @@ export default class GameScene extends Phaser.Scene {
             // reuse the custom upgrade-icon art for the matching permanent perk
             const pmap = { axe: 'axe', hp: 'vit', speed: 'boots', fuel: 'fire', wood: 'lumber', drain: 'ember', crit: 'crit', knock: 'knock', armor: 'armor' };
             c.add(this.add.image(W / 2, y - 26, 'upg_' + (pmap[perk.key] || 'axe')).setOrigin(0.5));
-            c.add(this.add.text(W / 2, y + 12, perk.name, {
+            c.add(this.add.text(W / 2, y + 12, t('perk.' + perk.key + '.name'), {
                 fontSize: '18px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
             }).setOrigin(0.5));
             const lvl = p.perks[perk.key] || 0;
-            c.add(this.add.text(W / 2, y + 36, `${perk.desc}  (nivå ${lvl} → ${lvl + 1})`, {
+            c.add(this.add.text(W / 2, y + 36, t('ms.level', { desc: t('perk.' + perk.key + '.desc'), lvl, next: lvl + 1 }), {
                 fontSize: '12px', fontFamily: 'Arial', color: '#bcd0c0'
             }).setOrigin(0.5));
             card.on('pointerover', () => card.setStrokeStyle(3, 0xffd166));
@@ -2885,7 +2886,7 @@ export default class GameScene extends Phaser.Scene {
                 this.sfx.upgrade();
                 c.destroy();
                 if (index < total) this.claimMilestone(index + 1, total);
-                else this.showGameOver(this.gameOverReason || 'Spillet er slutt', this.won);
+                else this.showGameOver(this.gameOverReason || t('over.generic'), this.won);
             });
         });
     }
@@ -2894,31 +2895,31 @@ export default class GameScene extends Phaser.Scene {
         const p = this.char;
         const c = this.add.container(0, 0).setDepth(5000);
         c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.8).setOrigin(0).setInteractive());
-        c.add(this.add.text(W / 2, 170, won ? '🏆 GRATULERER' : 'SLUTT', {
+        c.add(this.add.text(W / 2, 170, won ? t('over.congrats') : t('over.end'), {
             fontSize: won ? '40px' : '48px', fontFamily: 'Arial', fontStyle: 'bold', color: won ? '#ffe066' : '#ff5050'
         }).setOrigin(0.5));
         c.add(this.add.text(W / 2, 218, reason, {
             fontSize: '16px', fontFamily: 'Arial', color: won ? '#cfe7d0' : '#cfe3d4'
         }).setOrigin(0.5));
         c.add(this.add.text(W / 2, 286,
-            `Du nådde natt ${this.wave}\nPoeng: ${this.score}\nBeste: ${this.finalBest}`, {
+            t('over.reached', { n: this.wave, score: this.score, best: this.finalBest }), {
             fontSize: '20px', fontFamily: 'Arial', color: '#ffffff', align: 'center', lineSpacing: 8
         }).setOrigin(0.5));
         const s = this.stats;
         c.add(this.add.text(W / 2, 348,
-            `🌲 ${s.treesChopped} trær hugget   ⚔ ${s.enemiesKilled} fiender felt\n🪵 ${s.woodSpent} ved brukt`, {
+            t('over.statsLine', { trees: s.treesChopped, kills: s.enemiesKilled, wood: s.woodSpent }), {
             fontSize: '14px', fontFamily: 'Arial', color: '#ffd9a0', align: 'center', lineSpacing: 6
         }).setOrigin(0.5));
         const nextAt = (milestonesUnlocked(this.wave) + 1) * 5;
         c.add(this.add.text(W / 2, 392,
-            `👤 ${p.name} · ${p.runs} runder · ${perkCount(p)} boosts\nNeste belønning: nå natt ${nextAt}`, {
+            t('over.profile', { name: p.name, runs: p.runs, boosts: perkCount(p), next: nextAt }), {
             fontSize: '13px', fontFamily: 'Arial', color: '#9fd0ff', align: 'center', lineSpacing: 5
         }).setOrigin(0.5));
 
         const restart = this.add.rectangle(W / 2, 460, 220, 60, 0xc1440e)
             .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
         c.add(restart);
-        c.add(this.add.text(W / 2, 460, 'SPILL IGJEN', {
+        c.add(this.add.text(W / 2, 460, t('over.again'), {
             fontSize: '22px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
         }).setOrigin(0.5));
         restart.on('pointerup', () => this.scene.restart());
@@ -2926,7 +2927,7 @@ export default class GameScene extends Phaser.Scene {
         const menu = this.add.rectangle(W / 2, 532, 220, 50, 0x2a6b3a)
             .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
         c.add(menu);
-        c.add(this.add.text(W / 2, 532, 'MENY', {
+        c.add(this.add.text(W / 2, 532, t('over.menu'), {
             fontSize: '18px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
         }).setOrigin(0.5));
         menu.on('pointerup', () => this.scene.start('MenuScene'));
