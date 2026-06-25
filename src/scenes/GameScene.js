@@ -500,13 +500,13 @@ export default class GameScene extends Phaser.Scene {
         const headCol = [0xe8eef4, 0xffe08a, 0xffae42, 0xff7a2b, 0xff5a2b][Math.min(axeLv, 4)];
         const handleCol = ccLv >= 3 ? 0xd8b54a : ccLv >= 2 ? 0x9aa3ad : ccLv >= 1 ? 0x4a2f18 : 0x7a5230;
         const grow = Math.min(11, axeLv + Math.max(0, knockLv - 1));
-        const ext = Math.min(16, reachLv * 3.5);
-        const hx = 34, shaftLen = 22 + ext;
+        const ext = Math.min(22, reachLv * 5);
+        const hx = 34, top = 14, shaftLen = 20 + ext;
         // shaft — material upgrades with crit-chance
-        g.fillStyle(handleCol, 1); g.fillRect(hx, 16, 5, shaftLen);
-        g.fillStyle(shade(handleCol, 0.7), 1); g.fillRect(hx, 16, 2, shaftLen);
-        if (ccLv >= 1) { g.fillStyle(shade(handleCol, 0.55), 1); for (let yy = 22; yy < 16 + shaftLen; yy += 7) g.fillRect(hx, yy, 5, 1.5); }   // grip bands
-        if (ccLv >= 3) { g.fillStyle(0xfff0b0, 1); g.fillRect(hx - 1, 16 + shaftLen - 3, 7, 3); }   // gold pommel
+        g.fillStyle(handleCol, 1); g.fillRect(hx, top, 5, shaftLen);
+        g.fillStyle(shade(handleCol, 0.7), 1); g.fillRect(hx, top, 2, shaftLen);
+        if (ccLv >= 1) { g.fillStyle(shade(handleCol, 0.55), 1); for (let yy = top + 6; yy < top + shaftLen; yy += 7) g.fillRect(hx, yy, 5, 1.5); }   // grip bands
+        if (ccLv >= 3) { g.fillStyle(0xfff0b0, 1); g.fillRect(hx - 1, top + shaftLen - 3, 7, 3); }   // gold pommel
         // head — grows with axe+knock
         const hw = 16 + grow * 1.5, hh = 13 + grow, hl = hx + 3 - hw;
         g.fillStyle(headCol, 1); g.fillRect(hl, 13, hw, hh);

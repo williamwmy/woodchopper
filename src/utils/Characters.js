@@ -276,7 +276,7 @@ export function generateAvatarTexture(scene, key, look, gear = {}) {
     const handleCol = ccLv >= 3 ? 0xd8b54a : ccLv >= 2 ? 0x9aa3ad : ccLv >= 1 ? 0x4a2f18 : 0x6b4423;
     const grow = Math.min(9, axeLv + Math.max(0, knockLv - 1));               // wider head
     const headH = 8 + Math.min(7, Math.round(grow * 0.7));                    // taller head
-    const ext = Math.min(9, reachLv * 2);                                     // longer shaft per reach lvl
+    const ext = Math.min(14, reachLv * 3);                                    // longer shaft per reach lvl
     const w = 9 + grow;
 
     const drawAxe = (px, hl) => {   // px = handle x, hl = head left x
