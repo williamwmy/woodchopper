@@ -128,9 +128,18 @@ function shade(c, f) {
 
 // Draw a character avatar to a texture key (used for the player sprite and
 // for previews/portraits in the GUI). Regenerates if the key already exists.
+// extra headroom above the body so a long axe can rise above the character.
+// Body art keeps its original coordinates; AVATAR_TOP shifts it down, and the
+// matching body-centre origin (AVATAR_ORIGIN_Y) keeps the figure grounded
+// wherever the texture is placed.
+export const AVATAR_TOP = 18;
+export const AVATAR_H = 44 + AVATAR_TOP;
+export const AVATAR_ORIGIN_Y = (AVATAR_TOP + 22.5) / AVATAR_H;   // centre of the body band
+
 export function generateAvatarTexture(scene, key, look, gear = {}) {
     if (scene.textures.exists(key)) scene.textures.remove(key);
     const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    g.translateCanvas(0, AVATAR_TOP);   // drop the body down, leaving headroom on top
 
     const skin = SKINS[look.skin] ?? SKINS[1];
     const hair = HAIRS[look.hair] ?? HAIRS[1];
@@ -276,25 +285,35 @@ export function generateAvatarTexture(scene, key, look, gear = {}) {
     const handleCol = ccLv >= 3 ? 0xd8b54a : ccLv >= 2 ? 0x9aa3ad : ccLv >= 1 ? 0x4a2f18 : 0x6b4423;
     const grow = Math.min(9, axeLv + Math.max(0, knockLv - 1));               // wider head
     const headH = 8 + Math.min(7, Math.round(grow * 0.7));                    // taller head
-    const ext = Math.min(14, reachLv * 3);                                    // longer shaft per reach lvl
+    const ext = Math.min(AVATAR_TOP - 2, reachLv * 4);                        // shaft rises with reach (stays on-canvas)
     const w = 9 + grow;
 
-    const drawAxe = (px, hl) => {   // px = handle x, hl = head left x
-        g.fillStyle(handleCol, 1); g.fillRect(px, 5, 3, 24 + ext);            // handle (material by crit-chance)
-        if (ccLv >= 1) { g.fillStyle(shade(handleCol, 0.6), 1); g.fillRect(px, 13, 3, 1); g.fillRect(px, 19, 3, 1); g.fillRect(px, 25, 3, 1); }  // grip bands
-        if (ccLv >= 3) { g.fillStyle(0xfff0b0, 1); g.fillRect(px - 1, 5 + 24 + ext - 2, 5, 2); }   // gold pommel
-        g.fillStyle(headCol, 1); g.fillRect(hl, 3, w, headH);                 // head
-        g.fillStyle(shade(headCol, 0.78), 1); g.fillRect(hl, 3 + headH - 3, w, 3);
-        if (cdLv >= 1) { g.fillStyle(0xeaf6ff, 1); g.fillRect(hl, 3, w, 1); } // titanium sheen edge
-        if (cdLv >= 2) { g.fillStyle(0x8ff0ff, 1); g.fillRect(hl + 2, 5, 2, 2); }   // gem
-        if (cdLv >= 3) { g.fillStyle(0xff8fe0, 1); g.fillRect(hl + Math.max(5, w - 4), 5, 2, 2); }  // 2nd gem
+    // gripped near the bottom of the shaft (at the hand) and rising upward, so a
+    // longer reach makes the axe stand taller than the lumberjack
+    const drawAxe = (px) => {
+        const gripY = 30;                       // the hand holds here, low on the shaft
+        const headTop = 4 - ext;                // head climbs into the headroom with reach
+        const shaftTop = headTop + headH - 1;
+        const hl = px + 7 - w;                  // blade flares to the left of the shaft
+        g.fillStyle(handleCol, 1); g.fillRect(px, shaftTop, 3, gripY - shaftTop);   // handle
+        g.fillStyle(shade(handleCol, 0.7), 1); g.fillRect(px, shaftTop, 1, gripY - shaftTop);
+        if (ccLv >= 1) { g.fillStyle(shade(handleCol, 0.6), 1); for (let yy = shaftTop + 6; yy < gripY - 1; yy += 6) g.fillRect(px, yy, 3, 1); }  // grip bands
+        if (ccLv >= 3) { g.fillStyle(0xfff0b0, 1); g.fillRect(px - 1, gripY - 2, 5, 2); }   // gold pommel
+        // poll (back weight) + blade flaring left, with a bevelled cutting edge
+        g.fillStyle(shade(headCol, 0.8), 1); g.fillRect(px + 1, headTop + 1, 3, headH - 2);
+        g.fillStyle(headCol, 1); g.fillRect(hl, headTop, w, headH);           // head
+        g.fillStyle(shade(headCol, 0.78), 1); g.fillRect(hl, headTop + headH - 3, w, 3);
+        g.fillTriangle(hl, headTop, hl, headTop + headH, hl - 2, headTop + headH / 2);   // pointed bit
+        if (cdLv >= 1) { g.fillStyle(0xeaf6ff, 1); g.fillRect(hl, headTop, w, 1); g.fillTriangle(hl, headTop, hl, headTop + headH, hl - 2, headTop + headH / 2); } // titanium edge
+        if (cdLv >= 2) { g.fillStyle(0x8ff0ff, 1); g.fillRect(hl + 2, headTop + 2, 2, 2); }   // gem
+        if (cdLv >= 3) { g.fillStyle(0xff8fe0, 1); g.fillRect(hl + Math.max(5, w - 4), headTop + 2, 2, 2); }  // 2nd gem
     };
-    drawAxe(28, 26 - grow);
+    drawAxe(28);
     if (swiftLv >= 4) {   // a second axe in the off-hand once swing is fast enough
         g.fillStyle(skin, 1); g.fillRect(7, 25, 4, 4);
-        drawAxe(8, 4);
+        drawAxe(8);
     }
 
-    g.generateTexture(key, 36, 44);
+    g.generateTexture(key, 36, AVATAR_H);
     g.destroy();
 }

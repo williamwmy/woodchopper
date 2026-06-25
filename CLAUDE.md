@@ -94,7 +94,10 @@ upgrades, shop/building, phases (day/night), and `update()`.
   (`snapToGrid`, cell `GameScene.CELL`, centred on FIRE). **Two-step**: tapping
   the play area only moves the selected cell (so a finger doesn't occlude the
   spot); a separate **✓ Bygg her** button confirms and builds where valid
-  (`placeValid`: off the fire, off the control buttons, not overlapping).
+  (`placeValid`: off the fire, off the control buttons, not overlapping). The
+  placement panel also has a **Lv1–5 picker** for upgradeable types: build
+  straight to a level (`buildLevelCost` = base + the per-level `upgradeCost`s;
+  `spawnStructure(type,x,y,lvl)` bakes the level in, range ring previews it).
   Chainable until out of wood or at the per-item `max`. Active buildings share
   `updateStructures()` + `GameScene.SPEC` (cd/range/dmg/slow/splash/trap) scaled
   per-tower by `structStats(s)` from `s.lvl`. **Upgrades**: tap a placed tower or
@@ -136,10 +139,19 @@ upgrades, shop/building, phases (day/night), and `update()`.
 - **Characters + meta-progression** (`src/utils/Characters.js`, localStorage
   `emberwood_characters`): a roster of characters, each with an appearance
   (gender/skin/hair/shirt indices into palettes) and its own perks/bestNight/runs.
-  `generateAvatarTexture(scene, key, look)` draws a character to a texture — used
+  `generateAvatarTexture(scene, key, look, gear)` draws a character to a texture
+  (`36×AVATAR_H`; the canvas has `AVATAR_TOP` px of headroom on top so a long axe
+  rises *above* the figure — the axe is gripped low at the hand and grows upward
+  with reach. Every avatar image is placed with origin `(0.5, AVATAR_ORIGIN_Y)`
+  so the body stays grounded despite the headroom) — used
   for the in-game `player` sprite (regenerated each run from the active character)
   and for GUI previews/portraits. `CharacterScene.js` is the GUI (roster / create
-  form with live preview / character sheet). At game over you pick a permanent
+  form with live preview / character sheet; the in-game swing button mirrors the
+  axe via `makeAxeButtonTex(gear)`, showing two crossed axes once dual-wield).
+  **Test mode** (5 taps on the sheet avatar): pick a start night + wood, endless
+  first build day; *no* permanent progression; at game over "Play again" calls
+  `testRespawn()` — resumes the same night with towers/upgrades intact in a fresh
+  build day (vs the normal `scene.restart()`). At game over you pick a permanent
   perk for EVERY milestone night reached *that run* (floor(night/5), so reaching
   night 12 grants 2) via `claimMilestone(index, total)` — repeatable each run,
   not once-ever. Perks are *tiny* (≈1/6 of an in-run upgrade) and applied to base

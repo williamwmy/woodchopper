@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import {
     loadRoster, saveRoster, getActive, addCharacter, deleteCharacter,
     GENDERS, SKINS, HAIRS, SHIRTS, PERKS, attributes, perkCount, nextMilestone,
-    generateAvatarTexture, genderLabel
+    generateAvatarTexture, genderLabel, AVATAR_ORIGIN_Y
 } from '../utils/Characters.js';
 import { t } from '../utils/i18n.js';
 
@@ -57,7 +57,7 @@ export default class CharacterScene extends Phaser.Scene {
     avatar(x, y, ch, scale) {
         const key = 'av_' + ch.id;
         generateAvatarTexture(this, key, ch);
-        const img = this.add.image(x, y, key).setScale(scale);
+        const img = this.add.image(x, y, key).setOrigin(0.5, AVATAR_ORIGIN_Y).setScale(scale);
         this.layer.add(img);
         return img;
     }
@@ -246,7 +246,7 @@ export default class CharacterScene extends Phaser.Scene {
 
         // big live preview, framed
         this.layer.add(this.add.circle(W / 2, yPreview, 56, 0x1d2e18).setStrokeStyle(3, 0x4a6b3a));
-        this.previewImg = this.add.image(W / 2, yPreview, 'preview').setScale(3.4);
+        this.previewImg = this.add.image(W / 2, yPreview, 'preview').setOrigin(0.5, AVATAR_ORIGIN_Y).setScale(3.4);
         this.layer.add(this.previewImg);
         this.refreshPreview();
 

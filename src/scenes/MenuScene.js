@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { loadRoster, getActive, perkCount, generateAvatarTexture } from '../utils/Characters.js';
+import { loadRoster, getActive, perkCount, generateAvatarTexture, AVATAR_ORIGIN_Y } from '../utils/Characters.js';
 import { t, getLang, setLang } from '../utils/i18n.js';
 
 let W = 400;
@@ -59,7 +59,7 @@ export default class MenuScene extends Phaser.Scene {
         const char = getActive(roster);
         generateAvatarTexture(this, 'menu_avatar', char);
         const cy = info.y + info.height + 22;
-        this.add.image(W / 2 - 96, cy, 'menu_avatar').setScale(1.4);
+        this.add.image(W / 2 - 96, cy, 'menu_avatar').setOrigin(0.5, AVATAR_ORIGIN_Y).setScale(1.4);
         this.add.text(W / 2 - 72, cy, t('menu.playingAs', { name: char.name, night: char.bestNight }), {
             fontSize: '13px', fontFamily: 'Arial', color: '#ffd166'
         }).setOrigin(0, 0.5);

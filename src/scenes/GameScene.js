@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { SoundFX } from '../utils/SoundFX.js';
-import { loadRoster, saveRoster, getActive, milestonesUnlocked, perkCount, PERKS, generateAvatarTexture } from '../utils/Characters.js';
+import { loadRoster, saveRoster, getActive, milestonesUnlocked, perkCount, PERKS, generateAvatarTexture, AVATAR_ORIGIN_Y } from '../utils/Characters.js';
 import { t } from '../utils/i18n.js';
 
 // W/H/FIRE/PLAY_BOTTOM are recomputed from the real canvas size in create()
@@ -577,31 +577,56 @@ export default class GameScene extends Phaser.Scene {
             return (r << 16) | (gg << 8) | b;
         };
         const axeLv = gear.axe || 0, knockLv = gear.knock || 0, reachLv = gear.reach || 0;
-        const cdLv = gear.critdmg || 0, ccLv = gear.crit || 0;
+        const cdLv = gear.critdmg || 0, ccLv = gear.crit || 0, swiftLv = gear.swift || 0;
+        const dual = swiftLv >= 4;                 // dual-wield → two axes on the button
         const headCol = [0xe8eef4, 0xffe08a, 0xffae42, 0xff7a2b, 0xff5a2b][Math.min(axeLv, 4)];
         const handleCol = ccLv >= 3 ? 0xd8b54a : ccLv >= 2 ? 0x9aa3ad : ccLv >= 1 ? 0x4a2f18 : 0x7a5230;
-        const grow = Math.min(11, axeLv + Math.max(0, knockLv - 1));
-        const ext = Math.min(22, reachLv * 5);
-        const hx = 34, top = 14, shaftLen = 20 + ext;
-        // shaft — material upgrades with crit-chance
-        g.fillStyle(handleCol, 1); g.fillRect(hx, top, 5, shaftLen);
-        g.fillStyle(shade(handleCol, 0.7), 1); g.fillRect(hx, top, 2, shaftLen);
-        if (ccLv >= 1) { g.fillStyle(shade(handleCol, 0.55), 1); for (let yy = top + 6; yy < top + shaftLen; yy += 7) g.fillRect(hx, yy, 5, 1.5); }   // grip bands
-        if (ccLv >= 3) { g.fillStyle(0xfff0b0, 1); g.fillRect(hx - 1, top + shaftLen - 3, 7, 3); }   // gold pommel
-        // head — grows with axe+knock
-        const hw = 16 + grow * 1.5, hh = 13 + grow, hl = hx + 3 - hw;
-        g.fillStyle(headCol, 1); g.fillRect(hl, 13, hw, hh);
-        g.fillStyle(shade(headCol, 0.78), 1); g.fillRect(hl, 13 + hh - 4, hw, 4);
-        g.fillStyle(0xffffff, 0.45); g.fillRect(hl + 2, 15, hw - 6, 2);            // glint
-        // crit-damage → titanium edge + embedded gems on the head
+        const grow = Math.min(7, axeLv + Math.max(0, knockLv - 1));
+        const ext = dual ? 0 : Math.min(12, reachLv * 3);
+        const L = (dual ? 24 : 30) + ext;          // shaft length
+        const w = 5;                               // shaft width
+        const hw = (dual ? 8 : 10) + grow;         // blade reach (out to the side)
+        const hh = (dual ? 6 : 8) + grow * 0.7;    // blade half-height
+
         const gem = (gx, gy, col) => {
             g.fillStyle(col, 1); g.fillPoints([{ x: gx, y: gy - 3 }, { x: gx + 3, y: gy }, { x: gx, y: gy + 3 }, { x: gx - 3, y: gy }], true);
             g.fillStyle(0xffffff, 0.7); g.fillRect(gx - 1.5, gy - 1.5, 1.5, 1.5);
         };
-        if (cdLv >= 1) { g.fillStyle(0xeaf6ff, 1); g.fillRect(hl, 13, hw, 2); }    // titanium sheen
-        if (cdLv >= 2) gem(hl + hw * 0.4, 13 + hh / 2, 0x8ff0ff);                  // diamond
-        if (cdLv >= 3) gem(hl + hw * 0.7, 13 + hh / 2, 0xff8fe0);                  // second gem
-        if (cdLv >= 4) gem(hl + hw * 0.25, 13 + hh / 2, 0xa8ff9f);                 // third gem
+        // draws one axe centred on (0,0), shaft pointing down, head at the top,
+        // blade flaring LEFT — a proper axe silhouette (not a flag)
+        const drawAxe = (cx, cy, ang, flip) => {
+            g.save(); g.translateCanvas(cx, cy); g.rotateCanvas(ang); if (flip) g.scaleCanvas(-1, 1);
+            const topY = -L / 2, botY = L / 2, eyeY = topY + 6;
+            // dark outline behind the shaft so it reads on any button colour
+            g.fillStyle(0x1a1208, 0.9); g.fillRect(-w / 2 - 1, eyeY - 1, w + 2, botY - eyeY + 2);
+            // shaft — material upgrades with crit-chance
+            g.fillStyle(handleCol, 1); g.fillRect(-w / 2, eyeY, w, botY - eyeY);
+            g.fillStyle(shade(handleCol, 0.7), 1); g.fillRect(-w / 2, eyeY, w * 0.4, botY - eyeY);
+            if (ccLv >= 1) { g.fillStyle(shade(handleCol, 0.55), 1); for (let yy = eyeY + 8; yy < botY - 2; yy += 7) g.fillRect(-w / 2, yy, w, 1.4); }
+            if (ccLv >= 3) { g.fillStyle(0xfff0b0, 1); g.fillRect(-w / 2 - 1, botY - 3, w + 2, 3); }   // gold pommel
+            // poll (back weight, right of the shaft)
+            g.fillStyle(shade(headCol, 0.8), 1); g.fillRect(w / 2 - 1, eyeY - hh * 0.55, 4, hh * 1.1);
+            // blade — dark outline then fill, cutting edge to the left with a pointed bit
+            const blade = (inset) => [
+                { x: w * 0.5 - inset, y: eyeY - hh * 0.78 + inset },
+                { x: w * 0.5 - inset, y: eyeY + hh * 0.78 - inset },
+                { x: -hw * 0.8 + inset, y: eyeY + hh - inset },
+                { x: -hw + inset, y: eyeY },
+                { x: -hw * 0.8 + inset, y: eyeY - hh + inset }
+            ];
+            g.fillStyle(0x1a1208, 0.9); g.fillPoints(blade(0), true);
+            g.fillStyle(headCol, 1); g.fillPoints(blade(1.4), true);
+            g.fillStyle(shade(headCol, 0.78), 1); g.fillTriangle(-hw * 0.8 + 1.4, eyeY + hh - 1.4, -hw + 1.4, eyeY, -hw * 0.45, eyeY + hh * 0.4);  // lower bevel
+            g.fillStyle(0xffffff, 0.5); g.fillRect(-hw * 0.45, eyeY - hh * 0.4, hw * 0.5, 1.6);   // glint
+            // crit-damage → titanium edge + gems on the blade
+            if (cdLv >= 1) { g.fillStyle(0xeaf6ff, 1); g.fillTriangle(-hw + 1.4, eyeY, -hw * 0.78, eyeY + hh - 1, -hw * 0.62, eyeY + hh * 0.4); }
+            if (cdLv >= 2) gem(-hw * 0.3, eyeY, 0x8ff0ff);
+            if (cdLv >= 3) gem(-hw * 0.05, eyeY - hh * 0.35, 0xff8fe0);
+            if (cdLv >= 4) gem(-hw * 0.05, eyeY + hh * 0.35, 0xa8ff9f);
+            g.restore();
+        };
+        if (dual) { drawAxe(20, 30, -0.42, false); drawAxe(36, 30, 0.42, true); }   // crossed pair
+        else drawAxe(28, 29, -0.12, false);
         g.generateTexture('btn_axe', 56, 56); g.clear(); g.destroy();
     }
 
@@ -881,7 +906,7 @@ export default class GameScene extends Phaser.Scene {
         this.playerAura = this.add.image(FIRE.x, FIRE.y + 70, 'glow')
             .setBlendMode(Phaser.BlendModes.ADD).setDepth(499).setAlpha(0).setScale(0.4);
         this.playerShadow = this.addShadow(FIRE.x, FIRE.y + 88, 30, 0.6, 498);
-        this.player = this.add.image(FIRE.x, FIRE.y + 70, 'player').setDepth(500);
+        this.player = this.add.image(FIRE.x, FIRE.y + 70, 'player').setOrigin(0.5, AVATAR_ORIGIN_Y).setDepth(500);
         this.walkPhase = 0;
         this._gearSig = '';        // force the first avatar regen in refreshPowerVisuals
         this.refreshPowerVisuals();
@@ -1088,8 +1113,9 @@ export default class GameScene extends Phaser.Scene {
         const shopX = W - 58, shopY = H - 315;
         this.swingHeld = false;
 
-        // Swing button — hold to swing; drag down onto the lock to keep auto-swinging
-        this.swingBtn = this.add.circle(swingX, swingY, 56, 0xc1440e, 0.6)
+        // Swing button — hold to swing; drag down onto the lock to keep auto-swinging.
+        // Dark slate fill so the wooden shaft + steel head of the axe icon stay readable
+        this.swingBtn = this.add.circle(swingX, swingY, 56, 0x2c3a47, 0.66)
             .setStrokeStyle(4, 0xffd166).setScrollFactor(0).setDepth(3000)
             .setInteractive({ useHandCursor: true });
         this.swingIcon = this.add.image(swingX, swingY, 'btn_axe').setOrigin(0.5).setDepth(3001).setScrollFactor(0).setAlpha(0.95);
@@ -1764,6 +1790,19 @@ export default class GameScene extends Phaser.Scene {
         return Math.round(item.base * Math.pow(1.4, this.buildCounts[item.key] || 0));
     }
 
+    // can this structure type be upgraded (and therefore built straight to a level)?
+    isUpgradeable(key) {
+        return !!GameScene.SPEC[key] || key === 'gjerde' || key === 'hus';
+    }
+
+    // total wood to build a structure already at the given level: the base build
+    // cost plus every per-level upgrade it would otherwise pay one at a time
+    buildLevelCost(item, lvl) {
+        let cost = this.shopCost(item);
+        for (let L = 1; L < lvl; L++) cost += Math.round(item.base * 0.7 * L);  // mirrors upgradeCost()
+        return cost;
+    }
+
     openShop() {
         if (this.menuOpen || this.gameIsOver) return;
         if (this.phase !== 'day') { this.floatText(this.player.x, this.player.y - 30, t('fx.buildDaytime'), '#ff6b6b'); this.sfx.deny(); return; }
@@ -1846,6 +1885,7 @@ export default class GameScene extends Phaser.Scene {
         // tear down the shop panel; keep the world paused via menuOpen
         if (this.shopContainer) { this.shopContainer.destroy(); this.shopContainer = null; }
         this.placing = item;
+        this.buildLvl = 1;                 // chosen level to build straight to
 
         const c = this.add.container(0, 0).setDepth(4200);
         this.placeC = c;
@@ -1881,11 +1921,46 @@ export default class GameScene extends Phaser.Scene {
             backgroundColor: '#0008', padding: { x: 8, y: 4 }
         }).setOrigin(0.5));
 
+        // level picker — build straight to a chosen level (skip upgrading 1-by-1)
+        const upgradeable = this.isUpgradeable(item.key);
+        const MAX_LVL = 5;
+        const chips = [];
+        const refreshBuildUI = () => {
+            const total = this.buildLevelCost(item, this.buildLvl);
+            buildTxt.setText(upgradeable && this.buildLvl > 1
+                ? t('build.buildLvl', { lvl: this.buildLvl, cost: total })
+                : t('build.build', { cost: total }));
+            if (spec) ring.setRadius(Math.round(spec.range * (1 + 0.08 * (this.buildLvl - 1))));
+            chips.forEach((ch, i) => {
+                const on = (i + 1) === this.buildLvl;
+                ch.box.setFillStyle(on ? 0xffd166 : 0x223018, on ? 1 : 0.85)
+                    .setStrokeStyle(2, on ? 0xfff0c0 : 0x4a6b3a);
+                ch.txt.setColor(on ? '#1a1208' : '#cfe3d4');
+            });
+        };
+        if (upgradeable) {
+            c.add(this.add.text(W / 2, H - 196, t('build.lvlPick'), {
+                fontSize: '13px', fontFamily: 'Arial', color: '#bcd0c0'
+            }).setOrigin(0.5));
+            const cw = 60, gap = 6, totW = MAX_LVL * cw + (MAX_LVL - 1) * gap;
+            for (let L = 1; L <= MAX_LVL; L++) {
+                const cx = W / 2 - totW / 2 + (L - 1) * (cw + gap) + cw / 2;
+                const box = this.add.rectangle(cx, H - 168, cw, 34, 0x223018)
+                    .setStrokeStyle(2, 0x4a6b3a).setInteractive({ useHandCursor: true });
+                const txt = this.add.text(cx, H - 168, 'Lv' + L, {
+                    fontSize: '15px', fontFamily: 'Arial', fontStyle: 'bold', color: '#cfe3d4'
+                }).setOrigin(0.5);
+                c.add(box); c.add(txt);
+                box.on('pointerup', () => { this.buildLvl = L; this.sfx.tick && this.sfx.tick(); refreshBuildUI(); });
+                chips.push({ box, txt });
+            }
+        }
+
         // two-step: tap a cell to pick it (finger lifts → you can see it), then confirm
         const buildBtn = this.add.rectangle(W / 2, H - 106, 240, 52, 0x2a6b3a)
             .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
         const buildTxt = this.add.text(W / 2, H - 106, t('build.buildHere'), {
-            fontSize: '20px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
+            fontSize: '18px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
         }).setOrigin(0.5);
         const doneBtn = this.add.rectangle(W / 2, H - 50, 240, 48, 0xc1440e)
             .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
@@ -1913,15 +1988,17 @@ export default class GameScene extends Phaser.Scene {
         buildBtn.on('pointerup', () => {
             if (!sel.ok) { this.sfx.deny(); this.floatText(sel.x, sel.y - 20, t('fx.invalidCell'), '#ff6b6b'); return; }
             this.tryPlace(sel.x, sel.y);
-            if (this.placing) move(this.suggestCell());   // jump to the next free spread-out cell
+            if (this.placing) { move(this.suggestCell()); refreshBuildUI(); }  // next cell + fresh cost
         });
         move({ x: start.x, y: start.y });
+        refreshBuildUI();
     }
 
     tryPlace(x, y) {
         const item = this.placing;
         if (!item) return;
-        const cost = this.shopCost(item);
+        const lvl = this.isUpgradeable(item.key) ? (this.buildLvl || 1) : 1;
+        const cost = this.buildLevelCost(item, lvl);
         if (this.buildCounts[item.key] >= item.max) { this.sfx.deny(); this.endPlacement(); return; }
         if (this.wood < cost) { this.sfx.deny(); this.floatText(x, y - 20, t('fx.tooLittleWood'), '#ff6b6b'); return; }
         if (!this.placeValid(x, y)) { this.sfx.deny(); this.floatText(x, y - 20, t('fx.blocked'), '#ff6b6b'); return; }
@@ -1929,13 +2006,13 @@ export default class GameScene extends Phaser.Scene {
         this.wood -= cost;
         this.stats.woodSpent += cost;
         this.buildCounts[item.key]++;
-        const s = this.spawnStructure(item.key, x, y);
+        const s = this.spawnStructure(item.key, x, y, lvl);
         s.woodSpent = cost;                    // track total wood in this build (for refunds)
         this.sfx.build();
         this.updateHUD();
 
         // keep placing more of the same until out of wood / at the cap
-        if (this.buildCounts[item.key] >= item.max || this.wood < this.shopCost(item)) this.endPlacement();
+        if (this.buildCounts[item.key] >= item.max || this.wood < this.buildLevelCost(item, lvl)) this.endPlacement();
     }
 
     endPlacement() {
@@ -1952,20 +2029,18 @@ export default class GameScene extends Phaser.Scene {
         }[type];
     }
 
-    spawnStructure(type, x, y) {
+    spawnStructure(type, x, y, lvl = 1) {
         const p = this.clampBuild(x, y);
         const s = this.add.image(p.x, p.y, this.structTex(type)).setDepth(p.y);
-        s.type = type; s.dead = false; s.cd = 0; s.lvl = 1;
+        s.type = type; s.dead = false; s.cd = 0; s.lvl = lvl;
         s.buildBase = this.shopItems().find(it => it.key === type).base;
-        if (type === 'gjerde') { s.maxHp = 300; s.hp = 300; }   // sturdy palisade
+        if (type === 'gjerde') { s.maxHp = this.fenceHp(lvl); s.hp = s.maxHp; }   // sturdy palisade
         // huts show their heal radius as a faint green ring
         if (type === 'hus') {
-            s.healRing = this.add.circle(p.x, p.y, this.hutRadius(1), 0x49c46a, 0.06)
+            s.healRing = this.add.circle(p.x, p.y, this.hutRadius(lvl), 0x49c46a, 0.06)
                 .setStrokeStyle(2, 0x6fe39a, 0.3).setDepth(0);
         }
         s.shadow = this.addShadow(p.x, p.y + 14, 32, 0.45, p.y - 1);
-        s.setScale(0.2);
-        this.tweens.add({ targets: s, scale: 1, duration: 300, ease: 'Back.out' });
         // fences, towers, traps & huts can be upgraded by tapping them by day
         if (GameScene.SPEC[type] || type === 'gjerde' || type === 'hus') {
             s.setInteractive({ useHandCursor: true });
@@ -1975,8 +2050,12 @@ export default class GameScene extends Phaser.Scene {
                 fontSize: '12px', fontFamily: 'Arial', fontStyle: 'bold', color: '#1a1208',
                 backgroundColor: '#ffd166', padding: { x: 4, y: 1 }
             }).setOrigin(0.5).setDepth(p.y + 2).setVisible(false);
-            this.refreshStructLevel(s);
+            this.refreshStructLevel(s);   // badge + level tint/size for the chosen level
         }
+        // pop-in to whatever scale the level set (level-tinted towers grow slightly)
+        const finalScale = s.scaleX;
+        s.setScale(0.2);
+        this.tweens.add({ targets: s, scale: finalScale, duration: 300, ease: 'Back.out' });
         this.structures.push(s);
         return s;
     }
@@ -2994,6 +3073,50 @@ export default class GameScene extends Phaser.Scene {
         this.deathSequence();
     }
 
+    // test mode "play again": resume the SAME night with towers + upgrades intact,
+    // back in an endless build day so you can fix things before starting the night
+    testRespawn(overlay) {
+        if (overlay) overlay.destroy();
+        this.gameIsOver = false; this.won = false; this.gameOverReason = null;
+        this.menuOpen = false; this.swingHeld = false; this.nightEnding = false;
+
+        // tear down the night: timers, boss, enemies, projectiles, hazards
+        if (this.spawnTimer) { this.spawnTimer.remove(); this.spawnTimer = null; }
+        if (this.bossTimers) { this.bossTimers.forEach(tm => tm.remove()); this.bossTimers = []; }
+        if (this.boss) {
+            if (this.boss.hpBar) this.boss.hpBar.destroy();
+            if (this.boss.hpBarBg) this.boss.hpBarBg.destroy();
+            if (this.boss.aura) this.boss.aura.destroy();
+            this.boss.destroy(); this.boss = null;
+        }
+        if (this.tornadoes) { this.tornadoes.forEach(tr => tr.destroy()); this.tornadoes = []; }
+        this.enemies.forEach(e => { if (e.aura) e.aura.destroy(); e.destroy(); });
+        this.enemies = [];
+        this.enemyShots.forEach(p => p.destroy()); this.enemyShots = [];
+
+        // restore the lumberjack (the death tween left him toppled + faded)
+        this.tweens.killTweensOf(this.player);
+        this.player.setAngle(0).setAlpha(1).setPosition(FIRE.x, FIRE.y + 70);
+        this.refreshPowerVisuals();         // resets scale from upgrades
+        this.hp = this.maxHp; this.fuel = this.fuelMax;
+
+        // repair every fence to its level's full HP, like dawn does
+        this.structures.forEach(s => {
+            if (s.dead || s.type !== 'gjerde') return;
+            s.broken = false; s.hp = s.maxHp; s.setAlpha(1).setAngle(0);
+        });
+
+        // back to an endless build day at the same night
+        this.phase = 'day';
+        this.phaseDuration = DAY_SECONDS;
+        this.firstDayInfinite = true;
+        this.phaseEnd = this.time.now + 9e9;
+        if (this.testBtns) { this.testBtns.forEach(o => o.destroy()); this.testBtns = null; }
+        this.makeTestDayButtons();
+        this.updateHUD();
+        this.banner('🛠 TEST — Natt ' + this.wave + '\nFiks tårn, så start natten', 0xffd166);
+    }
+
     deathSequence() {
         this.sfx.gameOver();
         this.sfx.hurt();
@@ -3108,7 +3231,8 @@ export default class GameScene extends Phaser.Scene {
         c.add(this.add.text(W / 2, 460, t('over.again'), {
             fontSize: '22px', fontFamily: 'Arial', fontStyle: 'bold', color: '#ffffff'
         }).setOrigin(0.5));
-        restart.on('pointerup', () => this.scene.restart());
+        // in test mode, "play again" resumes the same night with everything intact
+        restart.on('pointerup', () => { if (this.testCfg) this.testRespawn(c); else this.scene.restart(); });
 
         const menu = this.add.rectangle(W / 2, 532, 220, 50, 0x2a6b3a)
             .setStrokeStyle(3, 0xffd166).setInteractive({ useHandCursor: true });
