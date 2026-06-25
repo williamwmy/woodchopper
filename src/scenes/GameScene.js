@@ -154,6 +154,32 @@ export default class GameScene extends Phaser.Scene {
         g.fillStyle(0x9fe6d6, 1); g.fillCircle(24, 10, 5);                              // frosty glint
         g.generateTexture('tree_ancient', 52, 66); g.clear();
 
+        // spruce 1 – deep-green conical fir (night 15+)
+        g.fillStyle(0x5a3819, 1); g.fillRect(23, 52, 7, 13);                            // trunk
+        g.fillStyle(0x1f5a2e, 1); g.fillTriangle(8, 55, 26, 20, 44, 55);                // lower tier (dark)
+        g.fillStyle(0x24692f, 1); g.fillTriangle(11, 40, 26, 13, 41, 40);              // mid tier
+        g.fillStyle(0x2f7d3a, 1); g.fillTriangle(14, 27, 26, 7, 38, 27);               // upper tier
+        g.fillStyle(0x49a352, 1); g.fillTriangle(21, 16, 26, 8, 31, 16);              // highlight tip
+        g.generateTexture('tree_spruce1', 52, 66); g.clear();
+
+        // spruce 2 – tall blue-green spruce dusted with snow (night 20+)
+        g.fillStyle(0x4a2f16, 1); g.fillRect(23, 52, 7, 13);                            // trunk
+        g.fillStyle(0x15463a, 1); g.fillTriangle(7, 55, 26, 16, 45, 55);                // lower tier
+        g.fillStyle(0x1b5a4a, 1); g.fillTriangle(10, 40, 26, 9, 42, 40);               // mid
+        g.fillStyle(0x256b58, 1); g.fillTriangle(14, 26, 26, 4, 38, 26);              // upper
+        g.fillStyle(0xbcd9e6, 0.85); g.fillRect(15, 38, 7, 2); g.fillRect(30, 38, 7, 2); // snow dust
+        g.fillStyle(0xdfeefb, 1); g.fillTriangle(22, 10, 26, 4, 30, 10);             // snowy tip
+        g.generateTexture('tree_spruce2', 52, 66); g.clear();
+
+        // spruce 3 – colossal dark frost-spruce, heavily snow-laden (night 25+)
+        g.fillStyle(0x3a2412, 1); g.fillRect(22, 52, 9, 13);                            // thick trunk
+        g.fillStyle(0x0e3a30, 1); g.fillTriangle(4, 56, 26, 11, 48, 56);                // very dark base
+        g.fillStyle(0x134a3c, 1); g.fillTriangle(8, 41, 26, 5, 44, 41);                // mid
+        g.fillStyle(0x1d5e4a, 1); g.fillTriangle(13, 26, 26, 1, 39, 26);              // upper
+        g.fillStyle(0xeaf6ff, 0.92); g.fillRect(13, 41, 9, 2); g.fillRect(30, 41, 9, 2); g.fillRect(18, 26, 7, 2); // heavy snow
+        g.fillStyle(0x7fd9c0, 1); g.fillTriangle(22, 8, 26, 1, 30, 8);               // frosty glow tip
+        g.generateTexture('tree_spruce3', 52, 66); g.clear();
+
         // stump
         g.fillStyle(0x5a3819, 1); g.fillRect(4, 8, 16, 11);
         g.fillStyle(0x6b4423, 1); g.fillRect(4, 6, 16, 4);
@@ -454,24 +480,34 @@ export default class GameScene extends Phaser.Scene {
             .filter(p => Phaser.Math.Distance.Between(p.x, p.y, FIRE.x, FIRE.y) > 95);
     }
 
-    // tougher tree variants. As the nights go on, more trees grow in as oaks
-    // (sturdier) or ancient pines (toughest) — they take more hits but drop more
-    // wood. Returns 0 = normal, 1 = oak, 2 = ancient.
+    // tougher tree variants unlock as the nights go on. Each tier has an unlock
+    // night and a chance that grows; we roll from the hardest down so the newest
+    // trees dominate later. Tiers: 0 normal, 1 oak, 2 ancient, 3–5 spruce.
     rollTreeTier() {
         const w = this.wave;
-        const ancient = Math.min(0.40, (w - 3) * 0.08);   // toughest, from ~night 4
-        const oak = Math.min(0.70, (w - 1) * 0.12);        // sturdy, from night 2
-        const r = Math.random();
-        if (r < ancient) return 2;
-        if (r < oak) return 1;
+        const tiers = [
+            { tier: 5, unlock: 25, rate: 0.05, cap: 0.45 },   // frost spruce (hardest)
+            { tier: 4, unlock: 20, rate: 0.05, cap: 0.45 },   // snow spruce
+            { tier: 3, unlock: 15, rate: 0.05, cap: 0.45 },   // dark spruce
+            { tier: 2, unlock: 8,  rate: 0.06, cap: 0.45 },   // ancient pine
+            { tier: 1, unlock: 4,  rate: 0.10, cap: 0.60 }    // oak
+        ];
+        for (const t of tiers) {
+            if (w < t.unlock) continue;
+            const chance = Math.min(t.cap, (w - t.unlock + 1) * t.rate);
+            if (Math.random() < chance) return t.tier;
+        }
         return 0;
     }
 
     applyTreeTier(t, tier) {
         const spec = [
-            { tex: 'tree',         hp: 16,  wood: 0 },
-            { tex: 'tree_oak',     hp: 42,  wood: 3 },
-            { tex: 'tree_ancient', hp: 85,  wood: 7 },
+            { tex: 'tree',          hp: 16,  wood: 0 },
+            { tex: 'tree_oak',      hp: 42,  wood: 3 },
+            { tex: 'tree_ancient',  hp: 85,  wood: 7 },
+            { tex: 'tree_spruce1',  hp: 140, wood: 11 },
+            { tex: 'tree_spruce2',  hp: 220, wood: 16 },
+            { tex: 'tree_spruce3',  hp: 330, wood: 22 }
         ][tier];
         t.tier = tier;
         t.woodBonus = spec.wood;
